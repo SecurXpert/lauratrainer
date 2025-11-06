@@ -38,7 +38,8 @@ const Login = () => {
       
       // Assuming the API returns a token in the response body
       // Store the bearer token in localStorage
-      localStorage.setItem('token', `Bearer ${data.token}`);
+      // localStorage.setItem('token', `Bearer ${data.token}`);
+      localStorage.setItem('access_token', data.access_token);
 
       // Optionally, call the context login to update auth state if it handles user info
       // Adjust based on your AuthContext implementation
@@ -101,10 +102,10 @@ const Login = () => {
               Sign In
             </Button>
           </form>
-
+{/* 
           <p className="text-center text-sm text-muted-foreground mt-6">
             Demo credentials: Any email & password
-          </p>
+          </p> */}
         </div>
       </div>
     </div>
