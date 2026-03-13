@@ -1,59 +1,47 @@
+ 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-}
-
+import { useNavigate } from 'react-router-dom';
+ 
 interface AuthContextType {
-  user: User | null;
-  login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
   isAuthenticated: boolean;
+  logout: () => void;
+  // Add more when needed: user, token, refreshUserProfile, etc.
 }
-
+ 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
+ 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const navigate = useNavigate();
+ 
+  // Check token on mount + whenever it changes
   useEffect(() => {
-    const storedUser = localStorage.getItem('instructor_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
+    const checkAuth = () => {
+      const token = localStorage.getItem('access_token');
+      setIsAuthenticated(!!token); // simple version — you can later validate JWT
+    };
+ 
+    checkAuth();
+ 
+    // Listen for storage changes (useful in multi-tab scenarios)
+    window.addEventListener('storage', checkAuth);
+    return () => window.removeEventListener('storage', checkAuth);
   }, []);
-
-  const login = async (email: string, password: string): Promise<boolean> => {
-    // Mock authentication
-    if (email && password) {
-      const mockUser = {
-        id: '1',
-        name: 'Dr. Sarah Johnson',
-        email: email,
-        role: 'Senior Instructor'
-      };
-      setUser(mockUser);
-      localStorage.setItem('instructor_user', JSON.stringify(mockUser));
-      return true;
-    }
-    return false;
-  };
-
+ 
   const logout = () => {
-    setUser(null);
-    localStorage.removeItem('instructor_user');
+    localStorage.removeItem('access_token');
+    // localStorage.removeItem('instructor_user'); // if you still use it somewhere
+    setIsAuthenticated(false);
+    navigate('/', { replace: true });
   };
-
+ 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ isAuthenticated, logout }}>
       {children}
     </AuthContext.Provider>
   );
 };
-
+ 
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -61,3 +49,4 @@ export const useAuth = () => {
   }
   return context;
 };
+ 
