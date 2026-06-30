@@ -2,18 +2,25 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Trash2, Calendar, Clock, RefreshCw, X, Edit, AlertTriangle } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Plus,
+  Trash2,
+  Calendar,
+  Clock,
+  RefreshCw,
+  Edit,
+  Search,
+  FileText,
+  CheckCircle,
+  Timer,
+  TrendingUp,
+  ChevronDown,
+  RotateCcw,
+  Filter,
+} from 'lucide-react';
 import { toast } from 'sonner';
- 
-interface Question {
-  key: string;
-  question_bank_id: number;
-  score: number;
-}
- 
+
 interface Exam {
   id: number;
   title: string;
@@ -26,233 +33,39 @@ interface Exam {
   questions: Record<string, { question_bank_id: number; score: number }>;
   is_active: number;
 }
- 
+
 const Exams = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
   const [exams, setExams] = useState<Exam[]>([]);
   const [fetching, setFetching] = useState(false);
- 
-  // Form visibility & mode
-  const [showForm, setShowForm] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [editingExamId, setEditingExamId] = useState<number | null>(null);
- 
-  // Form fields
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [collage, setCollage] = useState('');
-  const [windowStart, setWindowStart] = useState('');
-  const [windowEnd, setWindowEnd] = useState('');
-  const [duration, setDuration] = useState<number | ''>(20);
-  const [category, setCategory] = useState('texc');
-  const [questions, setQuestions] = useState<Question[]>([
-    { key: '1', question_bank_id: 1, score: 10 },
-  ]);
-  const [isActive, setIsActive] = useState<number>(0); // for update only
- 
-  const addQuestion = () => {
-    const nextKey = (questions.length + 1).toString();
-    setQuestions([...questions, { key: nextKey, question_bank_id: 1, score: 10 }]);
-  };
- 
-  const removeQuestion = (key: string) => {
-    if (questions.length <= 1) {
-      toast.error("At least one question is required");
-      return;
-    }
-    setQuestions(questions.filter(q => q.key !== key));
-  };
- 
-  const updateQuestion = (key: string, field: 'question_bank_id' | 'score', value: string) => {
-    const numValue = parseInt(value, 10);
-    if (isNaN(numValue)) return;
-    setQuestions(questions.map(q =>
-      q.key === key ? { ...q, [field]: numValue } : q
-    ));
-  };
- 
-  const resetForm = () => {
-    setTitle('');
-    setDescription('');
-    setCollage('');
-    setWindowStart('');
-    setWindowEnd('');
-    setDuration(20);
-    setCategory('texc');
-    setQuestions([{ key: '1', question_bank_id: 1, score: 10 }]);
-    setIsActive(0);
-    setIsEditMode(false);
-    setEditingExamId(null);
-    setShowForm(false);
-  };
- 
-  const openEditForm = (exam: Exam) => {
-    setIsEditMode(true);
-    setEditingExamId(exam.id);
-    setTitle(exam.title);
-    setDescription(exam.description || '');
-    setCollage(exam.collage);
-    setWindowStart(exam.window_start.slice(0, 16)); // compatible with datetime-local
-    setWindowEnd(exam.window_end.slice(0, 16));
-    setDuration(exam.duration);
-    setCategory(exam.category);
-    setIsActive(exam.is_active);
- 
-    // Convert questions object to array
-    const qArray: Question[] = [];
-    Object.entries(exam.questions).forEach(([key, val]) => {
-      qArray.push({
-        key,
-        question_bank_id: val.question_bank_id,
-        score: val.score,
-      });
-    });
-    setQuestions(qArray.length > 0 ? qArray : [{ key: '1', question_bank_id: 1, score: 10 }]);
- 
-    setShowForm(true);
-  };
- 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
- 
-    if (!title.trim() || !collage.trim()) {
-      toast.error("Title and collage are required");
-      return;
-    }
-    if (!windowStart || !windowEnd) {
-      toast.error("Please select exam window start & end");
-      return;
-    }
-    if (!duration || duration <= 0) {
-      toast.error("Duration must be greater than 0");
-      return;
-    }
- 
-    const hasInvalidQuestion = questions.some(q =>
-      q.question_bank_id < 1 || q.score < 1
-    );
-    if (hasInvalidQuestion) {
-      toast.error("All questions must have valid bank ID (>0) and score (>0)");
-      return;
-    }
- 
-    const payload: any = {
-      title: title.trim(),
-      description: description.trim(),
-      collage: collage.trim().toUpperCase(),
-      window_start: windowStart,
-      window_end: windowEnd,
-      duration: Number(duration),
-      category: category.trim(),
-      questions: {} as Record<string, { question_bank_id: number; score: number }>,
-    };
- 
-    if (isEditMode) {
-      payload.is_active = isActive;
-    }
- 
-    questions.forEach(q => {
-      payload.questions[q.key] = {
-        question_bank_id: q.question_bank_id,
-        score: q.score,
-      };
-    });
- 
-    setLoading(true);
- 
-    try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        toast.error("No access token found. Please login again.");
-        navigate('/login');
-        return;
-      }
- 
-      const url = isEditMode
-        ? `https://lauratek.in:8000/exam/update?exam_id=${editingExamId}`
-        : 'https://lauratek.in:8000/exam/creation';
- 
-      const response = await fetch(url, {
-        method: isEditMode ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
- 
-      const result = await response.json();
- 
-      if (!response.ok) {
-        throw new Error(result.message || result.error || (isEditMode ? 'Update failed' : 'Creation failed'));
-      }
- 
-      toast.success(isEditMode ? 'Exam updated successfully!' : 'Exam created successfully!');
-      resetForm();
-      fetchExams();
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || 'Operation failed');
-    } finally {
-      setLoading(false);
-    }
-  };
- 
-  const handleDelete = async (examId: number, title: string) => {
-    if (!confirm(`Are you sure you want to delete "${title}" (ID: ${examId})?`)) {
-      return;
-    }
- 
-    try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        toast.error("No access token found.");
-        return;
-      }
- 
-      const response = await fetch(`https://lauratek.in:8000/exam/delete?exam_id=${examId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
- 
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.message || 'Delete failed');
-      }
- 
-      toast.success('Exam deleted successfully');
-      fetchExams();
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || 'Could not delete exam');
-    }
-  };
- 
+
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCourse, setSelectedCourse] = useState('All Courses');
+  const [selectedStatus, setSelectedStatus] = useState('All Status');
+
   const fetchExams = async () => {
     setFetching(true);
     try {
       const token = localStorage.getItem('access_token');
       if (!token) {
-        toast.error("Please login to view exams");
+        toast.error('Please login to view exams');
         navigate('/login');
         return;
       }
- 
+
       const response = await fetch('https://lauratek.in:8000/exam/get', {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
- 
+
       if (!response.ok) {
         const err = await response.json();
         throw new Error(err.message || 'Failed to fetch exams');
       }
- 
+
       const data = await response.json();
       setExams(Array.isArray(data) ? data : []);
     } catch (err: any) {
@@ -262,318 +75,388 @@ const Exams = () => {
       setFetching(false);
     }
   };
- 
+
+  const handleDelete = async (examId: number, title: string) => {
+    if (!confirm(`Are you sure you want to delete "${title}" (ID: ${examId})?`)) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        toast.error('No access token found.');
+        return;
+      }
+
+      const response = await fetch(`https://lauratek.in:8000/exam/delete?exam_id=${examId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || 'Delete failed');
+      }
+
+      toast.success('Exam deleted successfully');
+      fetchExams();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Could not delete exam');
+    }
+  };
+
   useEffect(() => {
     fetchExams();
   }, []);
- 
+
+  // Calculate stats
+  const totalExams = exams.length;
+  const activeExams = exams.filter((e) => e.is_active === 1).length;
+  const upcomingExams = exams.filter((e) => new Date(e.window_start) > new Date()).length;
+
+  // Filter exams
+  const filteredExams = exams.filter((exam) => {
+    const matchesSearch =
+      exam.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      exam.id.toString().includes(searchQuery);
+    const matchesCourse =
+      selectedCourse === 'All Courses' || exam.collage === selectedCourse;
+    const matchesStatus =
+      selectedStatus === 'All Status' ||
+      (selectedStatus === 'Active' && exam.is_active === 1) ||
+      (selectedStatus === 'Inactive' && exam.is_active === 0);
+    return matchesSearch && matchesCourse && matchesStatus;
+  });
+
+  // Get unique courses for dropdown
+  const courses = ['All Courses', ...Array.from(new Set(exams.map((e) => e.collage)))];
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 p-6">
-      <div className="max-w-6xl mx-auto space-y-8">
- 
-        {/* Header + Actions */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h1 className="text-3xl font-bold text-slate-800">Exams</h1>
+    <div className="min-h-screen bg-gray-50 p-2 md:p-3">
+      <div className="w-full space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 sm:mb-7">
+          <div>
+            <h1 className="text-[30px] font-bold text-[#111827]">Exams</h1>
+            <p className="text-[#64748B]">Create, manage and monitor all examinations</p>
+          </div>
           <div className="flex gap-3">
             <Button
               onClick={fetchExams}
               variant="outline"
               disabled={fetching}
+              className="gap-2"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${fetching ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-4 w-4 ${fetching ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button onClick={() => { resetForm(); setShowForm(true); }}>
-              <Plus className="h-4 w-4 mr-2" />
+            <Button
+              onClick={() => navigate('/exams/new')}
+              className="h-10 px-5 rounded-xl border-0 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white text-sm font-medium shadow-[0_10px_22px_rgba(126,58,242,0.35)] flex"
+            >
+              <Plus className="h-4 w-4" />
               Create New Exam
             </Button>
           </div>
         </div>
- 
-        {/* Exam List */}
-        {fetching ? (
-          <Card>
-            <CardContent className="pt-10 text-center text-muted-foreground">
-              Loading exams...
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8 mt-4">
+          <Card className="relative border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[22px] bg-[#ffffff] overflow-hidden h-[180px]">
+            <div className="absolute -top-16 -right-16 w-[150px] h-[150px] bg-[#bfdbfe] rounded-full blur-[40px] opacity-100"></div>
+            <CardContent className="relative z-10 p-6 h-full flex flex-col justify-between">
+              <div className="flex items-start justify-between">
+                <div className="w-[50px] h-[50px] rounded-[14px] bg-[#e7efff] flex items-center justify-center">
+                  <FileText className="w-6 h-6 text-[#2563eb]" strokeWidth={2.2} />
+                </div>
+                <span className="text-xs font-bold text-[#16A34A] bg-[#E8F8F0] px-2.5 py-1 rounded-full">
+                  +12%
+                </span>
+              </div>
+              <div>
+                <h2 className="text-[30px] leading-[1] font-bold tracking-[-1px] text-[#0f172a]">
+                  {totalExams}
+                </h2>
+                <p className="mt-1 text-[14.5px] font-medium text-[#64748b]">
+                  Total Exams
+                </p>
+              </div>
             </CardContent>
           </Card>
-        ) : exams.length === 0 ? (
-          <Card>
-            <CardContent className="pt-10 text-center text-muted-foreground">
-              No exams found. Create your first exam!
+
+          <Card className="relative border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[22px] bg-[#ffffff] overflow-hidden h-[180px]">
+            <div className="absolute -top-16 -right-16 w-[150px] h-[150px] bg-[#bbf7d0] rounded-full blur-[40px] opacity-100"></div>
+            <CardContent className="relative z-10 p-6 h-full flex flex-col justify-between">
+              <div className="flex items-start justify-between">
+                <div className="w-[50px] h-[50px] rounded-[14px] bg-[#def7ec] flex items-center justify-center">
+                  <CheckCircle className="w-6 h-6 text-[#10b981]" strokeWidth={2.2} />
+                </div>
+                <span className="text-xs font-bold text-[#16A34A] bg-[#E8F8F0] px-2.5 py-1 rounded-full">
+                  +8%
+                </span>
+              </div>
+              <div>
+                <h2 className="text-[30px] leading-[1] font-bold tracking-[-1px] text-[#0f172a]">
+                  {activeExams}
+                </h2>
+                <p className="mt-1 text-[14.5px] font-medium text-[#64748b]">
+                  Active Exams
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="relative border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[22px] bg-[#ffffff] overflow-hidden h-[180px]">
+            <div className="absolute -top-16 -right-16 w-[150px] h-[150px] bg-[#fecaca] rounded-full blur-[40px] opacity-100"></div>
+            <CardContent className="relative z-10 p-6 h-full flex flex-col justify-between">
+              <div className="flex items-start justify-between">
+                <div className="w-[50px] h-[50px] rounded-[14px] bg-[#fee2e2] flex items-center justify-center">
+                  <Timer className="w-6 h-6 text-[#ef4444]" strokeWidth={2.2} />
+                </div>
+                <span className="text-xs font-bold text-[#16A34A] bg-[#E8F8F0] px-2.5 py-1 rounded-full">
+                  +5%
+                </span>
+              </div>
+              <div>
+                <h2 className="text-[30px] leading-[1] font-bold tracking-[-1px] text-[#0f172a]">
+                  {upcomingExams}
+                </h2>
+                <p className="mt-1 text-[14.5px] font-medium text-[#64748b]">
+                  Upcoming Exams
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="relative border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[22px] bg-[#ffffff] overflow-hidden h-[180px]">
+            <div className="absolute -top-16 -right-16 w-[150px] h-[150px] bg-[#fde68a] rounded-full blur-[40px] opacity-100"></div>
+            <CardContent className="relative z-10 p-6 h-full flex flex-col justify-between">
+              <div className="flex items-start justify-between">
+                <div className="w-[50px] h-[50px] rounded-[14px] bg-[#fef3c7] flex items-center justify-center">
+                  <TrendingUp className="w-6 h-6 text-[#f59e0b]" strokeWidth={2.2} />
+                </div>
+                <span className="text-xs font-bold text-[#16A34A] bg-[#E8F8F0] px-2.5 py-1 rounded-full">
+                  +5%
+                </span>
+              </div>
+              <div>
+                <h2 className="text-[30px] leading-[1] font-bold tracking-[-1px] text-[#0f172a]">
+                  78%
+                </h2>
+                <p className="mt-1 text-[14.5px] font-medium text-[#64748b]">
+                  Average Score
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters & Search */}
+        <div className="bg-white rounded-[24px] p-7 shadow-sm border border-gray-200 mb-6 mt-6">
+          <div className="flex items-center gap-3.5 mb-6">
+            <div className="p-3 bg-gradient-to-r from-blue-600 to-purple-600 rounded-[14px]">
+              <Filter className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900 text-[18px]">Filters & Search</h3>
+              <p className="text-[13px] text-gray-400 font-medium mt-0.5">Refine your exam list</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col lg:flex-row gap-y-4 gap-x-4 items-center">
+            {/* Search - Flexible width */}
+            <div className="relative w-full lg:flex-1">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Search by exam title or ID..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-11 pr-4 py-3.5 border border-gray-200 rounded-xl bg-[#F9FAFB] focus:outline-none focus:ring-0 focus:border-gray-200 focus:bg-white transition-colors text-sm font-medium placeholder:text-gray-400"
+              />
+            </div>
+
+            {/* Right Side Group */}
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full lg:w-auto">
+              <div className="relative flex-1 sm:flex-none w-full sm:w-40 md:w-48 lg:w-40 xl:w-48">
+                <select
+                  value={selectedCourse}
+                  onChange={(e) => setSelectedCourse(e.target.value)}
+                  className="w-full pl-4 pr-10 py-3.5 border border-gray-200 rounded-xl bg-[#F9FAFB] focus:outline-none focus:ring-0 focus:border-gray-200 focus:bg-white transition-colors text-sm font-medium text-gray-600 appearance-none cursor-pointer"
+                >
+                  {courses.map((course) => (
+                    <option key={course} value={course}>
+                      {course}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                  <ChevronDown className="w-4 h-4" />
+                </div>
+              </div>
+
+              <div className="relative flex-1 sm:flex-none w-full sm:w-40 md:w-48 lg:w-40 xl:w-48">
+                <select
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                  className="w-full pl-4 pr-10 py-3.5 border border-gray-200 rounded-xl bg-[#F9FAFB] focus:outline-none focus:ring-0 focus:border-gray-200 focus:bg-white transition-colors text-sm font-medium text-gray-600 appearance-none cursor-pointer"
+                >
+                  <option value="All Status">All Status</option>
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                  <ChevronDown className="w-4 h-4" />
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedCourse('All Courses');
+                  setSelectedStatus('All Status');
+                }}
+                className="flex items-center justify-center gap-2 px-8 py-3.5 border border-gray-200 rounded-xl bg-[#F9FAFB] hover:bg-gray-50 text-gray-600 text-sm font-bold transition-all whitespace-nowrap min-w-[130px] w-full sm:w-auto"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Exam List */}
+        {fetching ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="text-gray-500">Loading exams...</div>
+          </div>
+        ) : filteredExams.length === 0 ? (
+          <Card className="bg-white">
+            <CardContent className="p-12 text-center">
+              <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 mb-2">No exams found</p>
+              <p className="text-sm text-gray-400">
+                {exams.length === 0
+                  ? 'Create your first exam to get started'
+                  : 'Try adjusting your search or filters'}
+              </p>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {exams.map((exam) => (
-              <Card key={exam.id} className="overflow-hidden">
-                <CardHeader className="bg-slate-50 pb-4">
-                  <div className="flex items-baseline justify-between">
-                    <div className="flex items-baseline gap-3">
-                      <CardTitle className="text-lg">{exam.title}</CardTitle>
-                      <span className="text-sm font-medium text-muted-foreground">
-                        ID: {exam.id}
+          <div className="grid gap-6 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+            {filteredExams.map((exam) => (
+              <Card key={exam.id} className="bg-white overflow-hidden rounded-[22px] border border-slate-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all">
+                <CardContent className="p-0">
+                  {/* Header */}
+                  <div className="p-5 border-b">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-gray-900 line-clamp-1">{exam.title}</h3>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                            exam.is_active
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-gray-100 text-gray-600'
+                          }`}
+                        >
+                          {exam.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-400">ID: {exam.id}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <FileText className="h-3 w-3 text-purple-600" />
+                      <span className="text-sm font-medium text-purple-600">
+                        {exam.collage} - {exam.category}
                       </span>
                     </div>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEditForm(exam)}
-                        className="h-8 w-8"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDelete(exam.id, exam.title)}
-                        className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                  </div>
+
+                  {/* Description */}
+                  <div className="px-5 py-3">
+                    <p className="text-sm text-gray-500 line-clamp-2">
+                      {exam.description || 'No description available for this exam.'}
+                    </p>
+                  </div>
+
+                  {/* Details */}
+                  <div className="px-5 py-3 bg-gray-50">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex items-start gap-2">
+                        <Calendar className="h-4 w-4 text-gray-400 mt-0.5" />
+                        <div>
+                          <p className="text-xs text-gray-400">Start Date</p>
+                          <p className="text-sm font-medium text-gray-700">
+                            {formatDate(exam.window_start)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <Calendar className="h-4 w-4 text-gray-400 mt-0.5" />
+                        <div>
+                          <p className="text-xs text-gray-400">End Date</p>
+                          <p className="text-sm font-medium text-gray-700">
+                            {formatDate(exam.window_end)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <Clock className="h-4 w-4 text-gray-400 mt-0.5" />
+                        <div>
+                          <p className="text-xs text-gray-400">Duration</p>
+                          <p className="text-sm font-medium text-gray-700">{exam.duration} min</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <FileText className="h-4 w-4 text-gray-400 mt-0.5" />
+                        <div>
+                          <p className="text-xs text-gray-400">Questions</p>
+                          <p className="text-sm font-medium text-gray-700">
+                            {Object.keys(exam.questions).length} Questions
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <CardDescription>
-                    {exam.collage} • {exam.category}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-4 space-y-3 text-sm">
-                  <p className="text-muted-foreground line-clamp-2">
-                    {exam.description || 'No description'}
-                  </p>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <span className="font-medium">Start:</span><br />
-                      {new Date(exam.window_start).toLocaleString()}
-                    </div>
-                    <div>
-                      <span className="font-medium">End:</span><br />
-                      {new Date(exam.window_end).toLocaleString()}
-                    </div>
-                  </div>
-                  <div className="text-xs">
-                    Duration: {exam.duration} min • Questions: {Object.keys(exam.questions).length}
-                  </div>
-                  <div className="pt-2">
-                    <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                      exam.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {exam.is_active ? 'Active' : 'Inactive'}
-                    </span>
+
+                  {/* Actions */}
+                  <div className="p-5 pt-4 flex gap-3">
+                    <Button
+                      onClick={() => navigate(`/exams/${exam.id}/edit`)}
+                      className="flex-1 h-11 gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-[0_4px_14px_0_rgb(0,0,0,0.1)] transition-all"
+                    >
+                      <Edit className="h-4 w-4" />
+                      Edit
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={() => handleDelete(exam.id, exam.title)}
+                      className="flex-1 h-11 gap-2 rounded-xl bg-white border border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 shadow-[0_4px_14px_0_rgb(0,0,0,0.05)] transition-all"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
         )}
- 
-        {/* Create / Edit Exam Form */}
-        {showForm && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <Card className="w-full max-w-4xl max-h-[95vh] overflow-y-auto border-none shadow-2xl">
-              <CardHeader className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white sticky top-0 z-10 rounded-t-xl">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-2xl">
-                      {isEditMode ? 'Edit Exam' : 'Create New Exam'}
-                    </CardTitle>
-                    <CardDescription className="text-blue-100">
-                      {isEditMode ? 'Update the exam details' : 'Fill in the details to schedule a new examination'}
-                    </CardDescription>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={resetForm}
-                    className="text-white hover:bg-white/20"
-                  >
-                    <X className="h-6 w-6" />
-                  </Button>
-                </div>
-              </CardHeader>
- 
-              <CardContent className="pt-8">
-                <form onSubmit={handleSubmit} className="space-y-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Label htmlFor="title">Exam Title *</Label>
-                      <Input
-                        id="title"
-                        value={title}
-                        onChange={e => setTitle(e.target.value)}
-                        placeholder="Mid Term - Code - 2026"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="collage">Collage / Branch Code *</Label>
-                      <Input
-                        id="collage"
-                        value={collage}
-                        onChange={e => setCollage(e.target.value.toUpperCase())}
-                        placeholder="CSE / ECE / SMVM / ..."
-                        maxLength={10}
-                        required
-                      />
-                    </div>
-                  </div>
- 
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea
-                      id="description"
-                      value={description}
-                      onChange={e => setDescription(e.target.value)}
-                      placeholder="This is an online examination for ..."
-                      rows={3}
-                    />
-                  </div>
- 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="space-y-2">
-                      <Label>Window Start *</Label>
-                      <div className="relative">
-                        <Input
-                          type="datetime-local"
-                          value={windowStart}
-                          onChange={e => setWindowStart(e.target.value)}
-                          required
-                        />
-                        <Calendar className="absolute right-3 top-2.5 h-5 w-5 text-muted-foreground pointer-events-none" />
-                      </div>
-                    </div>
- 
-                    <div className="space-y-2">
-                      <Label>Window End *</Label>
-                      <div className="relative">
-                        <Input
-                          type="datetime-local"
-                          value={windowEnd}
-                          onChange={e => setWindowEnd(e.target.value)}
-                          required
-                        />
-                        <Clock className="absolute right-3 top-2.5 h-5 w-5 text-muted-foreground pointer-events-none" />
-                      </div>
-                    </div>
- 
-                    <div className="space-y-2">
-                      <Label htmlFor="duration">Duration (minutes) *</Label>
-                      <Input
-                        id="duration"
-                        type="number"
-                        min="1"
-                        max="300"
-                        value={duration}
-                        onChange={e => setDuration(e.target.value ? Number(e.target.value) : '')}
-                        required
-                      />
-                    </div>
-                  </div>
- 
-                  <div className="space-y-2">
-                    <Label htmlFor="category">Category</Label>
-                    <Input
-                      id="category"
-                      value={category}
-                      onChange={e => setCategory(e.target.value)}
-                      placeholder="texc / mcq / coding / ..."
-                    />
-                  </div>
- 
-                  {isEditMode && (
-                    <div className="space-y-2">
-                      <Label htmlFor="is_active">Status</Label>
-                      <select
-                        id="is_active"
-                        value={isActive}
-                        onChange={e => setIsActive(Number(e.target.value))}
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      >
-                        <option value={0}>Inactive</option>
-                        <option value={1}>Active</option>
-                      </select>
-                    </div>
-                  )}
- 
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-lg">Questions</Label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={addQuestion}
-                      >
-                        <Plus className="h-4 w-4 mr-2" /> Add Question
-                      </Button>
-                    </div>
- 
-                    <div className="space-y-4 border rounded-lg p-4 bg-slate-50">
-                      {questions.map((q) => (
-                        <div key={q.key} className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-end bg-white p-4 rounded border shadow-sm">
-                          <div className="sm:col-span-1 text-center font-medium text-muted-foreground">
-                            Q{q.key}
-                          </div>
-                          <div className="sm:col-span-5 space-y-1.5">
-                            <Label className="text-xs">Question Bank ID</Label>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={q.question_bank_id}
-                              onChange={e => updateQuestion(q.key, 'question_bank_id', e.target.value)}
-                            />
-                          </div>
-                          <div className="sm:col-span-5 space-y-1.5">
-                            <Label className="text-xs">Score / Marks</Label>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={q.score}
-                              onChange={e => updateQuestion(q.key, 'score', e.target.value)}
-                            />
-                          </div>
-                          <div className="sm:col-span-1">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeQuestion(q.key)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            >
-                              <Trash2 className="h-5 w-5" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
- 
-                  <div className="flex justify-end gap-3 pt-6 border-t">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={resetForm}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={loading}
-                      className="min-w-[160px]"
-                    >
-                      {loading ? (isEditMode ? 'Updating...' : 'Creating...') : (isEditMode ? 'Update Exam' : 'Create Exam')}
-                    </Button>
-                  </div>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
-        )}
       </div>
     </div>
   );
 };
- 
+
 export default Exams;
- 

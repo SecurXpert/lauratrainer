@@ -1,12 +1,13 @@
 
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://192.168.0.122:10000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://lauratek.in:8000';
 
 const axiosInstance = axios.create({
   baseURL: API_BASE,
   headers: {
     Accept: 'application/json',
+
   },
 });
 
@@ -28,9 +29,9 @@ axiosInstance.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('access_token');
+      localStorage.removeItem('trainer_profile');
       // Optional: redirect to login
-      window.location.href = '/login';
-      // If using react-router: navigate('/login', { replace: true });
+      window.location.href = '/';
     }
     return Promise.reject(error);
   }
