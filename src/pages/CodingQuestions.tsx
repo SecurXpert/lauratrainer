@@ -7,13 +7,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Trash2, Code2, X, Edit, List, Upload } from 'lucide-react';
 import { toast } from 'sonner';
- 
+
 interface TestCase {
   testcase: number;
   input: string;
   output: string;
 }
- 
+
 interface Question {
   question_id: number;
   title: string;
@@ -24,7 +24,7 @@ interface Question {
   test_cases: TestCase[];
   suggestion: string[];
 }
- 
+
 interface QuestionForm {
   title: string;
   question: string;
@@ -34,7 +34,7 @@ interface QuestionForm {
   test_cases: { input: string; output: string }[];
   suggestion: string[];
 }
- 
+
 const initialForm: QuestionForm = {
   title: '',
   question: '',
@@ -44,9 +44,9 @@ const initialForm: QuestionForm = {
   test_cases: [{ input: '', output: '' }],
   suggestion: [''],
 };
- 
+
 const API_BASE = 'https://lauratek.in:8000/compiler-questions';
- 
+
 const CodingQuestions = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState<QuestionForm>(initialForm);
@@ -56,14 +56,14 @@ const CodingQuestions = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [fetching, setFetching] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
- 
+
   const token = localStorage.getItem('access_token');
   if (!token) {
     toast.error('Please login first');
     navigate('/login', { replace: true });
     return null;
   }
- 
+
   const fetchQuestions = async () => {
     try {
       setFetching(true);
@@ -80,18 +80,18 @@ const CodingQuestions = () => {
       setFetching(false);
     }
   };
- 
+
   useEffect(() => {
     fetchQuestions();
   }, []);
- 
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
     field: keyof QuestionForm
   ) => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
   };
- 
+
   const handleTestCaseChange = (index: number, field: 'input' | 'output', value: string) => {
     setForm((prev) => {
       const newTestCases = [...prev.test_cases];
@@ -99,14 +99,14 @@ const CodingQuestions = () => {
       return { ...prev, test_cases: newTestCases };
     });
   };
- 
+
   const addTestCase = () => {
     setForm((prev) => ({
       ...prev,
       test_cases: [...prev.test_cases, { input: '', output: '' }],
     }));
   };
- 
+
   const removeTestCase = (index: number) => {
     if (form.test_cases.length <= 1) return;
     setForm((prev) => ({
@@ -114,21 +114,21 @@ const CodingQuestions = () => {
       test_cases: prev.test_cases.filter((_, i) => i !== index),
     }));
   };
- 
+
   const addSuggestion = () => {
     setForm((prev) => ({
       ...prev,
       suggestion: [...prev.suggestion, ''],
     }));
   };
- 
+
   const removeSuggestion = (index: number) => {
     setForm((prev) => ({
       ...prev,
       suggestion: prev.suggestion.filter((_, i) => i !== index),
     }));
   };
- 
+
   const handleSuggestionChange = (index: number, value: string) => {
     setForm((prev) => {
       const newSuggestions = [...prev.suggestion];
@@ -136,13 +136,13 @@ const CodingQuestions = () => {
       return { ...prev, suggestion: newSuggestions };
     });
   };
- 
+
   const resetForm = () => {
     setForm(initialForm);
     setEditingId(null);
     setIsFormOpen(false);
   };
- 
+
   const preparePayload = () => ({
     title: form.title.trim(),
     question: form.question.trim(),
@@ -156,41 +156,41 @@ const CodingQuestions = () => {
     })),
     suggestion: form.suggestion.filter((s) => s.trim() !== '').map((s) => s.trim()),
   });
- 
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
- 
+
     if (!form.title.trim() || !form.question.trim()) {
       toast.error('Title and Question are required');
       return;
     }
- 
+
     if (form.test_cases.some((tc) => !tc.input.trim() || !tc.output.trim())) {
       toast.error('All test cases must have both input and output');
       return;
     }
- 
+
     const isEdit = editingId !== null && !isNaN(editingId);
- 
+
     if (isEdit && (editingId == null || editingId <= 0)) {
       toast.error("Cannot update: invalid question ID");
       return;
     }
- 
+
     setLoading(true);
- 
+
     const url = isEdit
       ? `${API_BASE}/update?question_id=${editingId}`
       : `${API_BASE}/add`;
- 
+
     try {
       const payload = preparePayload();
- 
+
       console.log("→ SUBMIT MODE:", isEdit ? "UPDATE" : "CREATE");
       console.log("→ URL:", url);
       console.log("→ editingId:", editingId);
       console.log("→ Payload:", JSON.stringify(payload, null, 2));
- 
+
       const res = await fetch(url, {
         method: isEdit ? 'PUT' : 'POST',
         headers: {
@@ -199,7 +199,7 @@ const CodingQuestions = () => {
         },
         body: JSON.stringify(payload),
       });
- 
+
       if (!res.ok) {
         let errorMsg = isEdit ? 'Failed to update question' : 'Failed to add question';
         try {
@@ -210,10 +210,10 @@ const CodingQuestions = () => {
               ? errData.detail.map((e: any) => e.msg || e.message || JSON.stringify(e)).join(' • ')
               : errData.detail;
           }
-        } catch {}
+        } catch { }
         throw new Error(errorMsg);
       }
- 
+
       toast.success(isEdit ? 'Question updated successfully!' : 'Question added successfully!');
       resetForm();
       fetchQuestions();
@@ -224,29 +224,29 @@ const CodingQuestions = () => {
       setLoading(false);
     }
   };
- 
+
   const handleDelete = async (id: number) => {
     if (!id || isNaN(id)) {
       toast.error("Cannot delete: invalid question ID");
       return;
     }
- 
+
     if (!confirm('Are you sure you want to delete this question?')) return;
- 
+
     try {
       const url = `${API_BASE}/delete?question_id=${id}`;
       console.log("DELETE URL:", url);
- 
+
       const res = await fetch(url, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
- 
+
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.detail || 'Failed to delete question');
       }
- 
+
       toast.success('Question deleted');
       fetchQuestions();
     } catch (err: any) {
@@ -254,17 +254,17 @@ const CodingQuestions = () => {
       toast.error(err.message || 'Failed to delete question');
     }
   };
- 
+
   const startEdit = (q: Question) => {
     if (!q.question_id || isNaN(q.question_id)) {
       console.error("Invalid question object - missing valid question_id", q);
       toast.error("Cannot edit: question ID is missing");
       return;
     }
- 
+
     console.log("Starting edit - question:", q);
     console.log("question_id:", q.question_id);
- 
+
     setForm({
       title: q.title || '',
       question: q.question || '',
@@ -279,23 +279,23 @@ const CodingQuestions = () => {
         ? q.suggestion
         : [''],
     });
- 
+
     setEditingId(q.question_id);
     setIsFormOpen(true);
   };
- 
+
   const handleCsvUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
- 
+
     if (!file.name.toLowerCase().endsWith('.csv')) {
       toast.error('Please select a .csv file');
       return;
     }
- 
+
     const formData = new FormData();
     formData.append('file', file);
- 
+
     try {
       toast.loading('Uploading CSV...');
       const res = await fetch(`${API_BASE}/upload-csv`, {
@@ -305,45 +305,45 @@ const CodingQuestions = () => {
         },
         body: formData,
       });
- 
+
       if (!res.ok) {
         let msg = 'Failed to upload CSV';
         try {
           const err = await res.json();
           msg = err.detail || err.message || msg;
-        } catch {}
+        } catch { }
         throw new Error(msg);
       }
- 
+
       const result = await res.json().catch(() => ({}));
       toast.dismiss();
       toast.success(
         result.message ||
-        result.inserted
+          result.inserted
           ? `Successfully added ${result.inserted} question(s)`
           : 'CSV uploaded successfully!'
       );
- 
+
       fetchQuestions();
     } catch (err: any) {
       toast.dismiss();
       console.error('CSV upload failed:', err);
       toast.error(err.message || 'CSV upload failed');
     }
- 
+
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
- 
+
   const triggerFileInput = () => {
     fileInputRef.current?.click();
   };
- 
+
   const isEditing = editingId !== null && !isNaN(editingId);
- 
+
   return (
-    <div className="container max-w-6xl mx-auto py-8 px-4">
+    <div className="container w-full px-4 pt-0 pb-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold flex items-center gap-3">
           <Code2 className="h-8 w-8 text-primary" />
@@ -358,7 +358,7 @@ const CodingQuestions = () => {
           </Button>
         </div>
       </div>
- 
+
       <input
         type="file"
         ref={fileInputRef}
@@ -366,7 +366,7 @@ const CodingQuestions = () => {
         onChange={handleCsvUpload}
         className="hidden"
       />
- 
+
       <Card className="mb-10">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -417,14 +417,14 @@ const CodingQuestions = () => {
           )}
         </CardContent>
       </Card>
- 
+
       {isFormOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-start justify-center pt-8 z-50 overflow-y-auto">
           <Card className="w-full max-w-4xl mx-4 border-t-4 border-primary relative">
             <Button variant="ghost" size="icon" className="absolute top-4 right-4" onClick={resetForm}>
               <X size={20} />
             </Button>
- 
+
             <CardHeader>
               <CardTitle className="text-2xl">
                 {isEditing ? 'Edit Coding Question' : 'Add New Coding Question'}
@@ -433,7 +433,7 @@ const CodingQuestions = () => {
                 {isEditing ? 'Update the existing problem' : 'Create a new problem for students to solve'}
               </CardDescription>
             </CardHeader>
- 
+
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6 pb-8">
                 <div className="grid gap-2">
@@ -446,7 +446,7 @@ const CodingQuestions = () => {
                     required
                   />
                 </div>
- 
+
                 <div className="grid gap-2">
                   <Label htmlFor="question">Question Statement *</Label>
                   <Textarea
@@ -458,7 +458,7 @@ const CodingQuestions = () => {
                     required
                   />
                 </div>
- 
+
                 <div className="grid gap-2">
                   <Label htmlFor="description">Detailed Description / Constraints</Label>
                   <Textarea
@@ -469,7 +469,7 @@ const CodingQuestions = () => {
                     onChange={(e) => handleChange(e, 'description')}
                   />
                 </div>
- 
+
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="grid gap-2">
                     <Label>Sample Input</Label>
@@ -490,7 +490,7 @@ const CodingQuestions = () => {
                     />
                   </div>
                 </div>
- 
+
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <Label>Test Cases *</Label>
@@ -498,7 +498,7 @@ const CodingQuestions = () => {
                       <Plus className="h-4 w-4 mr-2" /> Add Test Case
                     </Button>
                   </div>
- 
+
                   {form.test_cases.map((tc, index) => (
                     <div
                       key={index}
@@ -536,7 +536,7 @@ const CodingQuestions = () => {
                     </div>
                   ))}
                 </div>
- 
+
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <Label>Hints / Suggestions (optional)</Label>
@@ -544,7 +544,7 @@ const CodingQuestions = () => {
                       <Plus className="h-4 w-4 mr-2" /> Add Hint
                     </Button>
                   </div>
- 
+
                   {form.suggestion.map((hint, index) => (
                     <div key={index} className="flex gap-2 items-start">
                       <Textarea
@@ -565,7 +565,7 @@ const CodingQuestions = () => {
                     </div>
                   ))}
                 </div>
- 
+
                 <div className="pt-6 flex gap-4">
                   <Button
                     type="submit"
@@ -575,7 +575,7 @@ const CodingQuestions = () => {
                   >
                     {loading ? 'Saving...' : isEditing ? 'Update Question' : 'Add Question'}
                   </Button>
- 
+
                   <Button type="button" variant="outline" size="lg" onClick={resetForm}>
                     Cancel
                   </Button>
@@ -588,6 +588,5 @@ const CodingQuestions = () => {
     </div>
   );
 };
- 
+
 export default CodingQuestions;
- 

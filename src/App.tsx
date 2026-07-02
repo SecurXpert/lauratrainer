@@ -19,12 +19,30 @@ import Chat from "./pages/Chat";
 import Resources from "./pages/Resources";
 import NotFound from "./pages/NotFound";
 import Curriculum from "./pages/Curriculum";
-import Mystudents from "./pages/Mystudents"; 
-import Performancereview from "./pages/Performancereview"; 
+import Mystudents from "./pages/Mystudents";
+import Performancereview from "./pages/Performancereview";
 import CourseMaterials from "./pages/CourseMaterials";
 import Badges from "./pages/Badges";
-import Codingquestions from "./pages/Codingquestions";
+import CodingQuestions from "./pages/CodingQuestions";
 import Certificates from "./pages/Certificates";
+import Analytics from "./pages/Analytics";
+
+// Additional Pages
+import CreateQuiz from "./pages/CreateQuiz";
+import BulkUpload from "./pages/BulkUpload";
+import AddQuestion from "./pages/AddQuestion";
+import AddQuestionPage from "./pages/AddQuestionPage";
+import CourseForm from "./pages/CourseForm";
+import CurriculumForm from "./pages/CurriculumForm";
+import ExamForm from "./pages/ExamForm";
+import ExamManagement from "./pages/ExamManagement";
+import AddExamQuestion from "./pages/AddExamQuestion";
+import CreateExamPage from "./pages/CreateExamPage";
+import ViewQuestionDetails from "./pages/ViewQuestionDetails";
+import ViewExamDetails from "./pages/ViewExamDetails";
+import Settings from "./pages/Settings";
+import ViewQuizDetails from "./pages/ViewQuizDetails";
+import EditQuiz from "./pages/EditQuiz";
 
 const queryClient = new QueryClient();
 
@@ -34,7 +52,7 @@ const queryClient = new QueryClient();
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated } = useAuth();
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
+  return isAuthenticated ? <>{children}</> : <Navigate to="/" replace />;
 };
 
 const App = () => {
@@ -49,37 +67,65 @@ const App = () => {
             <Routes>
 
               {/* Public Route */}
-              <Route path="/login" element={<Login />} />
+              <Route path="/" element={<Login />} />
+              <Route path="/login" element={<Navigate to="/" replace />} />
 
               {/* Protected Layout */}
               <Route
-                path="/"
                 element={
                   <ProtectedRoute>
                     <DashboardLayout />
                   </ProtectedRoute>
                 }
               >
-                {/* Default redirect */}
-                <Route index element={<Navigate to="dashboard" replace />} />
 
                 <Route path="dashboard" element={<Dashboard />} />
                 <Route path="courses" element={<Courses />} />
+                <Route path="courses/new" element={<CourseForm />} />
+                <Route path="courses/:id/edit" element={<CourseForm />} />
                 <Route path="attendance" element={<Attendance />} />
+
+                {/* Quizzes and Questions */}
                 <Route path="quizzes" element={<Quizzes />} />
+                <Route path="quizzes/new" element={<CreateQuiz />} />
+                <Route path="quizzes/bulk-upload" element={<BulkUpload />} />
+                <Route path="quizzes/add-question" element={<AddQuestionPage />} />
+                <Route path="quizzes/questions" element={<AddQuestion />} />
+                <Route path="quizzes/:id/view" element={<ViewQuizDetails />} />
+                <Route path="quizzes/:id/edit" element={<EditQuiz />} />
+                <Route path="quizzes/:id/add-question" element={<AddQuestionPage />} />
+                <Route path="quizzes/:id/questions" element={<AddQuestion />} />
+
                 <Route path="classes" element={<Classes />} />
                 <Route path="videos" element={<Videos />} />
                 <Route path="interviews" element={<Interviews />} />
                 <Route path="Exams" element={<Exams />} />
                 <Route path="chat" element={<Chat />} />
                 <Route path="resources" element={<Resources />} />
-                <Route path="curriculum" element={<Curriculum />} /> 
+
+                {/* Curriculum */}
+                <Route path="curriculum" element={<Curriculum />} />
+                <Route path="curriculum/new" element={<CurriculumForm />} />
+                <Route path="curriculum/:id/edit" element={<CurriculumForm />} />
+
                 <Route path="mystudents" element={<Mystudents />} />
-                <Route path="performance" element={<Performancereview />} /> 
-                <Route path="coursematerials" element={<CourseMaterials />} /> 
+                <Route path="performance" element={<Performancereview />} />
+                <Route path="coursematerials" element={<CourseMaterials />} />
                 <Route path="badges" element={<Badges />} />
-                <Route path="codingquestions" element={<Codingquestions />} />
-               <Route path="Certificates" element={<Certificates />} />
+                <Route path="codingquestions" element={<CodingQuestions />} />
+                <Route path="Certificates" element={<Certificates />} />
+                <Route path="analytics" element={<Analytics />} />
+
+                {/* Exam Management */}
+                <Route path="exam-management" element={<ExamManagement />} />
+                <Route path="exam-management/new" element={<CreateExamPage />} />
+                <Route path="exam-management/add-question" element={<AddExamQuestion />} />
+                <Route path="exam-management/view-question" element={<ViewQuestionDetails />} />
+                <Route path="exam-management/view-exam" element={<ViewExamDetails />} />
+                <Route path="exam-management/:id/edit" element={<ExamForm />} />
+
+                {/* Settings */}
+                <Route path="settings" element={<Settings />} />
               </Route>
 
               {/* 404 */}

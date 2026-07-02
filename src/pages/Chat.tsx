@@ -4,8 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Send, Search, Paperclip } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import {
+  Send, Search, Paperclip, Trash2, X, Plus, AlertCircle, Info, Download, Check, CheckCheck, Eye, EyeOff, Radio, CornerUpLeft, Trash
+} from "lucide-react";
 
 interface Thread {
   thread_id: number;
@@ -14,6 +17,9 @@ interface Thread {
   student?: {
     id: number;
     name: string;
+  };
+  last_message?: {
+    created_at: string;
   };
 }
 
@@ -24,893 +30,1026 @@ interface Message {
   created_at: string;
   thread_id: number;
   file_name?: string;
-  file_data?: string;
-  file_type?: string;
+  file_url?: string;
+  file_mime?: string;
+  file_size?: number;
   message_type?: string;
+  iv?: string;
+  ciphertext?: string;
+  is_broadcast?: boolean;
+  reply_to_message_id?: number | null;
 }
 
-const API_BASE = "http://192.168.0.122:10000";
-const WS_BASE = "ws://192.168.0.122:10000";
-
 const Chat = () => {
-  const [threads, setThreads] = useState<Thread[]>([]);
-  const [selectedThread, setSelectedThread] = useState<Thread | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  // per-thread cache stored in state and persisted to session storage
-  const [messagesByThread, setMessagesByThread] = useState<Record<number, Message[]>>(() => {
-    try {
-      const stored = sessionStorage.getItem("chat_cache");
-      return stored ? JSON.parse(stored) : {};
-    } catch {
-      return {};
-    }
-  });
-  const [message, setMessage] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const token = localStorage.getItem("access_token") || "";
 
-  // 🔥 Broadcast states
+  // ================= STATE =================
+  const [apiBase, setApiBase] = useState(() => {
+    return localStorage.getItem("chat_api_base") || "https://lauratek.in:8000";
+  });
+  const [wsBase, setWsBase] = useState(() => {
+    return localStorage.getItem("chat_ws_base") || "wss://lauratek.in:8000";
+  });
+  const [jwtToken, setJwtToken] = useState(token);
+  const [wsStatus, setWsStatus] = useState("Disconnected");
+  
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [activeThreadId, setActiveThreadId] = useState<number | null>(null);
+  const [activeCourseId, setActiveCourseId] = useState<number | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [messageInput, setMessageInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [replyingToId, setReplyingToId] = useState<number | null>(null);
+
+  // Multi-select & Hide Mode
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedPlaceholders, setSelectedPlaceholders] = useState<Set<number>>(new Set());
+
+  // Broadcast Modal State
   const [showBroadcast, setShowBroadcast] = useState(false);
   const [broadcastText, setBroadcastText] = useState("");
-  const [broadcastFile, setBroadcastFile] = useState<File | null>(null);
+  const [broadcastPendingFile, setBroadcastPendingFile] = useState<File | null>(null);
+  const [broadcastLoading, setBroadcastLoading] = useState(false);
+  const [courses, setCourses] = useState<any[]>([]);
+  const [selectedBroadcastCourseId, setSelectedBroadcastCourseId] = useState<number | null>(null);
+
+  // Cryptography Keys & Decrypted Message Cache
+  const [threadKeys, setThreadKeys] = useState<Map<number, any>>(new Map());
+  const [decryptedMessages, setDecryptedMessages] = useState<Record<number, string>>({});
 
   const wsRef = useRef<WebSocket | null>(null);
-  const bottomRef = useRef<HTMLDivElement | null>(null);
-  const token = localStorage.getItem("access_token");
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const broadcastFileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const api = async (path: string) => {
-    const res = await fetch(`${API_BASE}${path}`, {
-      headers: { Authorization: `Bearer ${token}` },
+  // Sync WS URL with API base when API base changes (if not edited manually)
+  const handleApiBaseChange = (val: string) => {
+    setApiBase(val);
+    localStorage.setItem("chat_api_base", val);
+    try {
+      const url = new URL(val);
+      const wsProtocol = url.protocol === "https:" ? "wss:" : "ws:";
+      const computedWs = `${wsProtocol}//${url.host}`;
+      setWsBase(computedWs);
+      localStorage.setItem("chat_ws_base", computedWs);
+    } catch {
+      // Ignore invalid URL
+    }
+  };
+
+  const handleWsBaseChange = (val: string) => {
+    setWsBase(val);
+    localStorage.setItem("chat_ws_base", val);
+  };
+
+  const handleTokenChange = (val: string) => {
+    setJwtToken(val);
+  };
+
+  // ================= CRYPTOGRAPHY HELPERS =================
+  const b64ToBytes = (b64: string) => {
+    try {
+      return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    } catch {
+      return new Uint8Array();
+    }
+  };
+
+  const importThreadKey = async (base64Key: string) => {
+    const keyBytes = b64ToBytes(base64Key);
+    return await window.crypto.subtle.importKey(
+      "raw",
+      keyBytes,
+      { name: "AES-GCM" },
+      false,
+      ["encrypt", "decrypt"]
+    );
+  };
+
+  const encryptText = async (text: string, threadId: number) => {
+    const key = threadKeys.get(threadId);
+    if (!key) throw new Error("Encryption Key not ready for this thread.");
+    const data = new TextEncoder().encode(text);
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+    const encrypted = await window.crypto.subtle.encrypt(
+      { name: "AES-GCM", iv },
+      key,
+      data
+    );
+    return {
+      iv: btoa(String.fromCharCode(...iv)),
+      ciphertext: btoa(String.fromCharCode(...new Uint8Array(encrypted))),
+    };
+  };
+
+  const decryptText = async (ivB64: string, ciphertextB64: string, threadId: number) => {
+    const key = threadKeys.get(threadId);
+    if (!key) return "[key not ready]";
+    const iv = b64ToBytes(ivB64);
+    const ct = b64ToBytes(ciphertextB64);
+    try {
+      const dec = await window.crypto.subtle.decrypt(
+        { name: "AES-GCM", iv },
+        key,
+        ct
+      );
+      return new TextDecoder().decode(dec);
+    } catch (e) {
+      console.error(e);
+      return "[decryption failed]";
+    }
+  };
+
+  // ================= API HELPERS =================
+  const apiCall = async (path: string, opts: any = {}) => {
+    const headers = {
+      ...(opts.headers || {}),
+      Authorization: `Bearer ${jwtToken}`,
+    };
+    if (opts.body && typeof opts.body === "object" && !(opts.body instanceof FormData)) {
+      headers["Content-Type"] = "application/json";
+      opts.body = JSON.stringify(opts.body);
+    }
+    const res = await fetch(apiBase + path, {
+      ...opts,
+      headers,
     });
-    if (!res.ok) throw new Error(await res.text());
+    if (!res.ok) {
+      if (res.status === 401) throw new Error("Unauthorized - Check JWT Token");
+      const text = await res.text();
+      throw new Error(text || "API error");
+    }
     return res.json();
   };
 
-  // ================= LOAD THREADS =================
-  useEffect(() => {
-    if (!token) return;
-    api("/chat/trainer/threads")
-      .then(setThreads)
-      .catch(console.error);
-  }, []);
-
-  // ================= LOAD MESSAGES =================
-  // helper to merge two message arrays without duplicates, sorted by time
-  const mergeMessages = (existing: Message[], incoming: Message[]) => {
-    const map = new Map<number, Message>();
-    existing.forEach((m) => map.set(m.id, m));
-    incoming.forEach((m) => map.set(m.id, m));
-    return Array.from(map.values()).sort(
-      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    );
+  const uploadAttachment = async (threadId: number, file: File) => {
+    const fd = new FormData();
+    fd.append("upload", file);
+    const res = await fetch(`${apiBase}/chat/thread/${threadId}/upload`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${jwtToken}` },
+      body: fd,
+    });
+    if (!res.ok) throw new Error((await res.text()) || "Upload failed");
+    return res.json();
   };
 
-  const persistCache = (cache: Record<number, Message[]>) => {
-    try {
-      sessionStorage.setItem("chat_cache", JSON.stringify(cache));
-    } catch {}
+  const uploadBroadcastFile = async (courseId: number, file: File) => {
+    const fd = new FormData();
+    fd.append("upload", file);
+    const res = await fetch(`${apiBase}/chat/broadcast/${courseId}/upload`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${jwtToken}` },
+      body: fd,
+    });
+    if (!res.ok) throw new Error((await res.text()) || "Broadcast upload failed");
+    return res.json();
   };
 
-  const loadMessages = async (threadId: number, beforeId?: number) => {
+  // ================= DATA LOADING =================
+  const loadCourses = async () => {
     try {
-      let url = `/chat/thread/${threadId}/messages?limit=50`;
-      if (beforeId) url += `&before_id=${beforeId}`;
-      const data = await api(url);
-
-      const formatted = (data || []).map((msg: any) => {
-        if (msg.message_type === "file" && msg.file_data) {
-          if (!msg.file_data.startsWith("data:")) {
-            msg.file_data = `${API_BASE}/${msg.file_data}`;
-          }
-        }
-        return msg;
-      });
-
-      let mergedList: Message[] = [];
-      setMessagesByThread((prev) => {
-        const existing = prev?.[threadId] || [];
-        mergedList = mergeMessages(existing, formatted);
-        const next = { ...(prev || {}), [threadId]: mergedList };
-        persistCache(next);
-        return next;
-      });
-
-      if (selectedThread?.thread_id === threadId) {
-        setMessages(mergedList);
-      }
-      return mergedList;
+      const data = await apiCall("/trainer/courses");
+      setCourses(data || []);
     } catch (err) {
-      console.error("failed to load messages", err);
-      return [];
+      console.error("Failed to load courses:", err);
     }
   };
 
+  const loadThreads = async () => {
+    try {
+      const data = await apiCall("/chat/trainer/threads");
+      setThreads(data || []);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load threads");
+    }
+  };
+
+  const loadHistory = async (threadId: number) => {
+    try {
+      const data = await apiCall(`/chat/thread/${threadId}/messages`);
+      setMessages(data || []);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to load chat history");
+    }
+  };
+
+  // Auto-scroll chat to bottom
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Load threads on initial render
   useEffect(() => {
-    return () => {
-      wsRef.current?.close();
-    };
-  }, []);
+    if (jwtToken) {
+      loadThreads();
+      loadCourses();
+    }
+  }, [jwtToken, apiBase]);
 
-  // ================= CONNECT WS =================
-  const connectWS = (threadId: number) => {
-    wsRef.current?.close();
+  // When showBroadcast becomes true, set selectedBroadcastCourseId
+  useEffect(() => {
+    if (showBroadcast) {
+      setSelectedBroadcastCourseId(activeCourseId);
+    }
+  }, [showBroadcast, activeCourseId]);
 
-    const ws = new WebSocket(
-      `${WS_BASE}/ws/chat/${threadId}?token=${encodeURIComponent(token || "")}`
-    );
+  // Trigger decryption of messages when key or message list changes
+  useEffect(() => {
+    const decryptAll = async () => {
+      if (!activeThreadId) return;
+      const key = threadKeys.get(activeThreadId);
+      if (!key) return;
 
-    ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data);
-      if (!msg || msg.type !== "message") return;
-      const msgThreadId = msg.thread_id as number;
-      if (!msgThreadId) return;
+      const updatedDecrypted: Record<number, string> = { ...decryptedMessages };
+      let changed = false;
 
-      setMessagesByThread((prev) => {
-        const existing = prev?.[msgThreadId] || [];
-        const merged = mergeMessages(existing, [msg]);
-        const next = { ...(prev || {}), [msgThreadId]: merged };
-        persistCache(next);
-        return next;
-      });
-
-      if (msgThreadId === threadId) {
-        setMessages((prev) => mergeMessages(prev, [msg]));
+      for (const msg of messages) {
+        if (msg.iv && msg.ciphertext && !msg.is_broadcast) {
+          const cacheVal = decryptedMessages[msg.id];
+          if (!cacheVal || cacheVal === "[key not ready]") {
+            const plain = await decryptText(msg.iv, msg.ciphertext, activeThreadId);
+            updatedDecrypted[msg.id] = plain;
+            changed = true;
+          }
+        }
       }
+
+      if (changed) {
+        setDecryptedMessages(updatedDecrypted);
+      }
+    };
+    decryptAll();
+  }, [messages, threadKeys, activeThreadId]);
+
+  // ================= WEBSOCKET =================
+  const connectWS = (threadId: number) => {
+    if (wsRef.current) wsRef.current.close();
+    setWsStatus("Connecting...");
+
+    const socketUrl = `${wsBase}/ws/chat/${threadId}?token=${encodeURIComponent(jwtToken)}`;
+    const ws = new WebSocket(socketUrl);
+
+    ws.onopen = () => {
+      setWsStatus("Connected");
+      ws.send(JSON.stringify({ type: "request_thread_key", thread_id: threadId }));
+    };
+
+    ws.onmessage = async (e) => {
+      const msg = JSON.parse(e.data);
+      if (msg.type === "thread_key_init") {
+        try {
+          const key = await importThreadKey(msg.key);
+          setThreadKeys((prev) => {
+            const next = new Map(prev);
+            next.set(msg.thread_id, key);
+            return next;
+          });
+        } catch (err) {
+          console.error("Key import failed:", err);
+        }
+        return;
+      }
+      if (msg.type === "message") {
+        setMessages((prev) => [...prev, msg]);
+      }
+      if (msg.type === "delete_everyone") {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === msg.message_id
+              ? { ...m, content: "[This message was deleted]", sender_role: "system" }
+              : m
+          )
+        );
+      }
+    };
+
+    ws.onclose = () => {
+      setWsStatus("Disconnected");
     };
 
     wsRef.current = ws;
   };
 
-  const handleSelectThread = async (thread: Thread) => {
-    setSelectedThread(thread);
-    const cached = messagesByThread?.[thread.thread_id];
-    if (cached && cached.length) {
-      setMessages(cached);
-      loadMessages(thread.thread_id).catch(console.error);
-    } else {
-      await loadMessages(thread.thread_id);
-    }
+  const handleThreadSelect = (thread: Thread) => {
+    setActiveThreadId(thread.thread_id);
+    setActiveCourseId(thread.course_id);
+    setSelectMode(false);
+    setSelectedPlaceholders(new Set());
+    loadHistory(thread.thread_id);
     connectWS(thread.thread_id);
   };
 
-  const loadEarlier = async () => {
-    if (!selectedThread) return;
-    const current = messagesByThread[selectedThread.thread_id] || [];
-    if (current.length === 0) return;
-    const oldest = current[0];
-    const more = await loadMessages(selectedThread.thread_id, oldest.id);
-    if (more && more.length) {
-      setMessages((prev) => mergeMessages(more, prev));
+  // Cleanup WS on unmount
+  useEffect(() => {
+    return () => {
+      if (wsRef.current) wsRef.current.close();
+    };
+  }, []);
+
+  // ================= ACTIONS & COMPOSER =================
+  const handleSendNormal = async () => {
+    if (!activeThreadId) return;
+
+    // Send Attachment first if exists
+    if (pendingFile) {
+      try {
+        await uploadAttachment(activeThreadId, pendingFile);
+        setPendingFile(null);
+        toast.success("Attachment sent successfully!");
+        loadHistory(activeThreadId);
+      } catch (err: any) {
+        toast.error(err.message || "Failed to send file.");
+      }
+      return;
+    }
+
+    // Send Text message
+    const text = messageInput.trim();
+    if (!text) return;
+
+    try {
+      const enc = await encryptText(text, activeThreadId);
+      const payload: any = {
+        type: "message",
+        iv: enc.iv,
+        ciphertext: enc.ciphertext,
+        message_type: "text",
+      };
+
+      if (replyingToId) {
+        payload.reply_to_message_id = replyingToId;
+        setReplyingToId(null);
+      }
+
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify(payload));
+        setMessageInput("");
+      } else {
+        toast.error("WebSocket connection is closed. Reconnecting...");
+        connectWS(activeThreadId);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to encrypt/send message.");
     }
   };
 
-  const fileToBase64 = (file: File) =>
-    new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-    });
+  const handleSendBroadcast = async () => {
+    const courseIdToUse = selectedBroadcastCourseId || activeCourseId;
+    const text = broadcastText.trim();
+    if (!text && !broadcastPendingFile) {
+      toast.error("Enter announcement content or attach a file.");
+      return;
+    }
 
-  // ================= SEND NORMAL MESSAGE =================
-  const handleSend = async () => {
-    if (!selectedThread || !wsRef.current) return;
+    try {
+      setBroadcastLoading(true);
 
-    const now = new Date().toISOString();
+      // Collect target course IDs
+      let courseIds: number[] = [];
+      if (selectedBroadcastCourseId === -1) {
+        courseIds = courses.map((c) => c.id);
+      } else if (courseIdToUse) {
+        courseIds = [courseIdToUse];
+      }
 
-    // FILE
-    if (selectedFile) {
-      const base64 = await fileToBase64(selectedFile);
+      if (courseIds.length === 0) {
+        toast.error("Please select a course or All Students to broadcast to.");
+        setBroadcastLoading(false);
+        return;
+      }
 
-      const newMsg: Message = {
-        id: Date.now(),
-        sender_role: "trainer",
-        created_at: now,
-        thread_id: selectedThread.thread_id,
-        message_type: "file",
-        file_name: selectedFile.name,
-        file_type: selectedFile.type,
-        file_data: base64,
+      // Upload file first if present (use the first course ID for upload)
+      let fileData = null;
+      if (broadcastPendingFile) {
+        fileData = await uploadBroadcastFile(courseIds[0], broadcastPendingFile);
+      }
+
+      const payload = {
+        content: text || null,
+        file_key: fileData ? fileData.file_key : null,
+        file_name: fileData ? fileData.file_name : null,
+        file_mime: fileData ? fileData.file_mime : null,
+        file_size: fileData ? fileData.file_size : null,
       };
 
-      setMessages((prev) => mergeMessages(prev, [newMsg]));
-      setMessagesByThread((prev) => {
-        const t = selectedThread.thread_id;
-        const existing = prev?.[t] || [];
-        const next = { ...(prev || {}), [t]: mergeMessages(existing, [newMsg]) };
-        persistCache(next);
-        return next;
-      });
-
-      wsRef.current.send(
-        JSON.stringify({
-          type: "message",
-          message_type: "file",
-          file_name: selectedFile.name,
-          file_type: selectedFile.type,
-          file_data: base64,
-          thread_id: selectedThread.thread_id,
+      // Dispatch broadcasts in parallel
+      const promises = courseIds.map((id) =>
+        apiCall(`/chat/broadcast/${id}`, {
+          method: "POST",
+          body: payload,
+        }).catch((err) => {
+          console.error(`Broadcast failed for course ${id}:`, err);
+          return { students: 0, failed: true };
         })
       );
 
-      setSelectedFile(null);
-      return;
+      const results = await Promise.all(promises);
+      const totalStudents = results.reduce((sum, r) => sum + (r.students || 0), 0);
+      const hasFailed = results.some((r) => r.failed);
+
+      if (hasFailed) {
+        toast.warning(`Broadcast sent to ${totalStudents} students (some courses failed).`);
+      } else {
+        toast.success(`Broadcast successfully sent to ${totalStudents} students!`);
+      }
+
+      setBroadcastText("");
+      setBroadcastPendingFile(null);
+      setShowBroadcast(false);
+      if (activeThreadId) {
+        loadHistory(activeThreadId);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Broadcast failed.");
+    } finally {
+      setBroadcastLoading(false);
     }
-
-    // TEXT
-    if (!message.trim()) return;
-
-    const newMsg: Message = {
-      id: Date.now(),
-      sender_role: "trainer",
-      content: message,
-      created_at: now,
-      thread_id: selectedThread.thread_id,
-      message_type: "text",
-    };
-
-    // update both visible and cache
-    setMessages((prev) => mergeMessages(prev, [newMsg]));
-    setMessagesByThread((prev) => {
-      const t = selectedThread!.thread_id;
-      const existing = prev?.[t] || [];
-      const next = { ...(prev || {}), [t]: mergeMessages(existing, [newMsg]) };
-      persistCache(next);
-      return next;
-    });
-
-    wsRef.current.send(
-      JSON.stringify({
-        type: "message",
-        message_type: "text",
-        content: message,
-        thread_id: selectedThread.thread_id,
-      })
-    );
-
-    setMessage("");
   };
 
-  // ================= SEND BROADCAST =================
-  const handleBroadcastSend = async () => {
-  if (!selectedThread) return;
-  if (!broadcastText) {
-    alert("Please enter announcement text");
-    return;
-  }
-
-  try {
-    const payload = {
-      content: broadcastText,
-      file_key: null,
-      file_name: null,
-      file_mime: null,
-      file_size: null,
-    };
-
-    const res = await fetch(
-      `${API_BASE}/chat/broadcast/${selectedThread.course_id}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+  const handleDeleteEveryone = async (msgId: number) => {
+    if (!confirm("Are you sure you want to delete this message for everyone?")) return;
+    try {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          type: "delete_everyone",
+          message_id: msgId,
+        }));
       }
-    );
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      alert(data.detail || "Broadcast failed");
-      return;
+      await apiCall(`/chat/message/${msgId}`, { method: "DELETE" }).catch(() => {});
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === msgId
+            ? { ...m, content: "[This message was deleted]", sender_role: "system" }
+            : m
+        )
+      );
+      toast.success("Message deleted successfully.");
+    } catch (err: any) {
+      toast.error(err.message || "Delete failed.");
     }
+  };
 
-    // ✅ Add to UI
-    const newBroadcast: Message = {
-      id: Date.now(),
-      sender_role: "trainer",
-      content: broadcastText,
-      created_at: new Date().toISOString(),
-      thread_id: selectedThread.thread_id,
-      message_type: "text",
-    };
-
-    setMessages((prev) => mergeMessages(prev, [newBroadcast]));
-    setMessagesByThread((prev) => {
-      const next: Record<number, Message[]> = {};
-      Object.entries(prev || {}).forEach(([k, arr]) => {
-        next[+k] = mergeMessages(arr, [newBroadcast]);
-      });
-      if (selectedThread) {
-        const t = selectedThread.thread_id;
-        next[t] = mergeMessages(prev?.[t] || [], [newBroadcast]);
+  // Multi-Select Handlers
+  const handleBubbleClick = (msgId: number) => {
+    if (!selectMode) return;
+    setSelectedPlaceholders((prev) => {
+      const next = new Set(prev);
+      if (next.has(msgId)) {
+        next.delete(msgId);
+      } else {
+        next.add(msgId);
       }
-      persistCache(next);
       return next;
     });
+  };
 
-    alert(`Broadcast sent to ${data.students} students`);
+  const handleHideSelected = async () => {
+    if (selectedPlaceholders.size === 0) {
+      toast.error("No placeholders selected.");
+      return;
+    }
+    if (!confirm(`Hide ${selectedPlaceholders.size} placeholder(s) permanently?`)) return;
 
-    setBroadcastText("");
-    setShowBroadcast(false);
+    try {
+      await apiCall(`/chat/thread/${activeThreadId}/hide_placeholders`, {
+        method: "POST",
+        body: Array.from(selectedPlaceholders),
+      });
 
-  } catch (error) {
-    console.error(error);
-    alert("Broadcast failed");
-  }
-};
+      toast.success(`Permanently hidden ${selectedPlaceholders.size} placeholder(s).`);
+      setSelectedPlaceholders(new Set());
+      setSelectMode(false);
+      if (activeThreadId) {
+        loadHistory(activeThreadId);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to hide placeholders.");
+    }
+  };
 
+  const handleDownloadFile = async (url: string, name: string) => {
+    try {
+      const res = await fetch(apiBase + url, {
+        headers: { Authorization: `Bearer ${jwtToken}` },
+      });
+      if (!res.ok) throw new Error("Download error");
+      const blob = await res.blob();
+      const linkUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = linkUrl;
+      link.download = name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(linkUrl);
+    } catch (err) {
+      toast.error("File download failed.");
+    }
+  };
+
+  // Filter threads based on query
   const filteredThreads = threads.filter((t) =>
-    t.student?.name.toLowerCase().includes(searchQuery.toLowerCase())
+    (t.student?.name || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const getInitials = (name = "") => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .substring(0, 2)
+      .toUpperCase();
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="w-full flex h-[calc(100vh-100px)] gap-5 text-[#e9edef] overflow-hidden">
+      {/* ================= SIDEBAR PANEL ================= */}
+      <aside className="w-[360px] flex-shrink-0 bg-[#111B21] border border-white/5 rounded-3xl p-5 flex flex-col gap-4 shadow-xl">
+        <div>
+          <h2 className="text-xl font-bold tracking-tight text-[#e9edef] flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#00A884]" />
+            Trainer Panel
+          </h2>
+          <p className="text-[11.5px] text-[#8696A0] mt-1">
+            Click thread to open chat • Select Mode to hide deleted items.
+          </p>
+        </div>
 
-      {/* HEADER WITH BROADCAST BUTTON */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Chat</h1>
-        <Button
-          onClick={() => {
-            if (!selectedThread) return alert("Select thread first");
-            setShowBroadcast(true);
-          }}
-        >
-          Broadcast to Course
-        </Button>
-      </div>
+        {/* Server & Token Config Inputs */}
+        <div className="hidden space-y-2.5 bg-black/20 p-3 rounded-2xl border border-white/5">
+          <div>
+            <label className="text-[10px] uppercase font-bold text-[#8696A0] tracking-wider">API Base URL</label>
+            <Input
+              value={apiBase}
+              onChange={(e) => handleApiBaseChange(e.target.value)}
+              className="h-8 text-xs bg-black/40 border-white/10 text-white rounded-lg focus:ring-1 focus:ring-[#00A884]"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase font-bold text-[#8696A0] tracking-wider">WS Base URL</label>
+            <Input
+              value={wsBase}
+              onChange={(e) => handleWsBaseChange(e.target.value)}
+              className="h-8 text-xs bg-black/40 border-white/10 text-white rounded-lg focus:ring-1 focus:ring-[#00A884]"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] uppercase font-bold text-[#8696A0] tracking-wider">JWT Token</label>
+            <Input
+              value={jwtToken}
+              onChange={(e) => handleTokenChange(e.target.value)}
+              type="password"
+              className="h-8 text-xs bg-black/40 border-white/10 text-white rounded-lg focus:ring-1 focus:ring-[#00A884]"
+            />
+          </div>
+        </div>
 
-      {/* BROADCAST MODAL */}
-      {showBroadcast && selectedThread && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-card p-6 rounded-xl w-[450px] space-y-4 shadow-xl">
-            <h2 className="text-lg font-semibold">
-              Broadcast to Course {selectedThread.course_id}
-            </h2>
+        <div className="flex gap-2">
+          <Button
+            onClick={loadThreads}
+            className="flex-1 h-9 rounded-xl bg-[#00A884] hover:bg-[#008F72] text-white text-xs font-bold transition-all shadow-sm"
+          >
+            Load My Threads
+          </Button>
+          <Button
+            onClick={() => setShowBroadcast(true)}
+            className="flex-1 h-9 rounded-xl bg-[#f59e0b] hover:bg-[#d97706] text-white text-xs font-bold transition-all shadow-sm"
+          >
+            Broadcast
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-2 px-2 text-xs">
+          <span className="text-[#8696A0]">WebSocket Status:</span>
+          <span
+            className={`font-semibold ${
+              wsStatus === "Connected" ? "text-[#00E676]" : "text-[#FF1744]"
+            }`}
+          >
+            {wsStatus}
+          </span>
+        </div>
+
+        <div className="relative">
+          <Search className="w-4 h-4 text-[#8696A0] absolute left-3 top-1/2 -translate-y-1/2" />
+          <Input
+            placeholder="Search student threads..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 h-9 bg-[#202C33] border-none text-[#e9edef] placeholder:text-[#8696A0] text-xs rounded-xl focus:ring-1 focus:ring-[#00A884]"
+          />
+        </div>
+
+        {/* Scrollable Threads List */}
+        <ScrollArea className="flex-1 pr-1.5 -mr-1.5">
+          <div className="space-y-1.5">
+            {filteredThreads.length === 0 ? (
+              <div className="text-center py-6 text-xs text-[#8696A0]">No active threads</div>
+            ) : (
+              filteredThreads.map((thread) => {
+                const isActive = thread.thread_id === activeThreadId;
+                return (
+                  <div
+                    key={thread.thread_id}
+                    onClick={() => handleThreadSelect(thread)}
+                    className={`flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-all border ${
+                      isActive
+                        ? "bg-[#2A3942] border-[#00A884]/30"
+                        : "bg-transparent border-transparent hover:bg-[#202C33]"
+                    }`}
+                  >
+                    <Avatar className="w-10 h-10 border border-white/10 shrink-0">
+                      <AvatarFallback className="bg-gradient-to-tr from-[#6366f1] to-[#a855f7] text-white font-bold text-xs">
+                        {getInitials(thread.student?.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-semibold truncate text-[#e9edef]">
+                          {thread.student?.name || `Student ${thread.student?.id}`}
+                        </span>
+                        {thread.unread_count > 0 && (
+                          <Badge className="bg-[#00E676] hover:bg-[#00E676] text-black font-extrabold text-[10px] px-1.5 py-0.5 rounded-full shrink-0">
+                            {thread.unread_count}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-[11.5px] text-[#8696A0] truncate mt-0.5">
+                        Course {thread.course_id} • {thread.last_message ? new Date(thread.last_message.created_at).toLocaleDateString() : "No messages"}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </ScrollArea>
+
+        {/* Multi-Select Hide Mode Controls */}
+        <div className="pt-2 border-t border-white/5 flex gap-2">
+          <Button
+            onClick={() => {
+              setSelectMode(!selectMode);
+              setSelectedPlaceholders(new Set());
+            }}
+            className={`flex-1 h-9 text-xs rounded-xl font-bold ${
+              selectMode ? "bg-[#ef4444] hover:bg-[#dc2626] text-white" : "bg-[#202C33] hover:bg-[#2F3E46] text-[#e9edef]"
+            }`}
+          >
+            {selectMode ? "Cancel Select" : "Select Mode"}
+          </Button>
+          {selectMode && (
+            <Button
+              onClick={handleHideSelected}
+              disabled={selectedPlaceholders.size === 0}
+              className="flex-1 h-9 text-xs rounded-xl font-bold bg-[#ef4444] hover:bg-[#dc2626] text-white disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Hide ({selectedPlaceholders.size})
+            </Button>
+          )}
+        </div>
+      </aside>
+
+      {/* ================= MAIN CHAT DISPLAY ================= */}
+      <section className="flex-1 bg-[#0B141A] border border-white/5 rounded-3xl flex flex-col overflow-hidden relative shadow-2xl">
+        {activeThreadId ? (
+          <>
+            {/* Chat Area Header */}
+            <div className="h-16 bg-[#202C33] px-5 flex items-center justify-between border-b border-white/5 shrink-0">
+              <div className="flex items-center gap-3">
+                <Avatar className="w-10 h-10 border border-white/5">
+                  <AvatarFallback className="bg-gradient-to-tr from-[#3b82f6] to-[#8b5cf6] text-white font-bold text-xs">
+                    {getInitials(threads.find((t) => t.thread_id === activeThreadId)?.student?.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h3 className="text-sm font-bold text-[#e9edef]">
+                    {threads.find((t) => t.thread_id === activeThreadId)?.student?.name || "Student"}
+                  </h3>
+                  <p className="text-[11px] text-[#8696A0] mt-0.5">
+                    Thread: {activeThreadId} • Course: {activeCourseId}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Badge className="bg-[#202C33] hover:bg-[#202C33] text-[#00A884] border border-[#00A884]/20 rounded-full py-0.5 px-2.5 text-xs font-semibold">
+                  Course Active
+                </Badge>
+              </div>
+            </div>
+
+            {/* Messages Scroll Area */}
+            <ScrollArea className="flex-1 bg-[#0b141a]/95 p-5 relative overflow-y-auto no-scrollbar">
+              <div className="space-y-3.5">
+                {messages.map((msg) => {
+                  const isMe = msg.sender_role === "trainer";
+                  const isSystem = msg.sender_role === "system" || msg.content?.includes("deleted");
+                  const decryptedContent = decryptedMessages[msg.id];
+                  const displayContent = msg.content || decryptedContent || "...";
+                  const isSelected = selectedPlaceholders.has(msg.id);
+
+                  return (
+                    <div
+                      key={msg.id}
+                      onClick={() => handleBubbleClick(msg.id)}
+                      className={`flex ${isMe ? "justify-end" : "justify-start"} ${
+                        selectMode ? "cursor-pointer" : ""
+                      }`}
+                    >
+                      <div
+                        className={`group relative max-w-[70%] p-3.5 rounded-2xl border transition-all duration-200 ${
+                          isMe
+                            ? "bg-[#005C4C] border-[#00A884]/20 text-[#e9edef]"
+                            : "bg-[#202C33] border-white/5 text-[#e9edef]"
+                        } ${isSelected ? "border-2 border-dashed border-[#ef4444] opacity-70" : ""} ${
+                          isSystem ? "italic text-[#8696A0] bg-black/10 border-dashed border-white/10" : ""
+                        }`}
+                      >
+                        {/* Reply Indicator if message is replying to another message */}
+                        {msg.reply_to_message_id && (
+                          <div className="mb-2 p-2 bg-black/20 rounded-lg border-l-4 border-[#00A884] text-xs text-[#8696A0]">
+                            Replying to message #{msg.reply_to_message_id}
+                          </div>
+                        )}
+
+                        {/* Broadcast indicator */}
+                        {msg.is_broadcast && (
+                          <Badge className="bg-[#f59e0b] hover:bg-[#f59e0b] text-black font-extrabold text-[9px] mb-1.5">
+                            Broadcast
+                          </Badge>
+                        )}
+
+                        {/* Text Message */}
+                        {(!msg.message_type || msg.message_type === "text") && (
+                          <p className="text-[13.5px] leading-relaxed whitespace-pre-wrap word-break">{displayContent}</p>
+                        )}
+
+                        {/* Image message */}
+                        {msg.message_type === "image" && msg.file_url && (
+                          <div className="space-y-1.5">
+                            <img
+                              src={apiBase + msg.file_url}
+                              alt={msg.file_name || "image"}
+                              className="max-w-full max-h-[220px] rounded-xl object-cover cursor-pointer hover:opacity-90"
+                              onClick={() => window.open(apiBase + msg.file_url, "_blank")}
+                            />
+                            {msg.content && <p className="text-xs mt-1 text-[#e9edef]">{msg.content}</p>}
+                          </div>
+                        )}
+
+                        {/* Document/File message */}
+                        {msg.message_type === "file" && msg.file_url && (
+                          <div className="flex items-center justify-between gap-3 bg-black/20 p-2.5 rounded-xl border border-white/5">
+                            <div className="min-w-0">
+                              <p className="text-[12.5px] font-bold text-white truncate">{msg.file_name || "Attachment"}</p>
+                              <p className="text-[10px] text-[#8696A0] uppercase mt-0.5">
+                                {msg.file_mime?.split("/")[1] || "file"} • {msg.file_size ? `${(msg.file_size / 1024).toFixed(1)} KB` : ""}
+                              </p>
+                            </div>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => handleDownloadFile(msg.file_url!, msg.file_name || "download")}
+                              className="h-8 w-8 text-[#00A884] hover:text-[#008F72] hover:bg-[#202C33] rounded-lg shrink-0"
+                            >
+                              <Download className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
+
+                        {/* Metadata line: time, actions on hover */}
+                        <div className="flex justify-between items-center gap-3 mt-1.5 text-[10px] text-[#8696A0]">
+                          <span>{new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                          
+                          {/* Message Actions visible on hover */}
+                          {!selectMode && !isSystem && (
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5">
+                              <button
+                                onClick={() => {
+                                  setReplyingToId(msg.id);
+                                  setMessageInput(`Replying to #${msg.id}: `);
+                                }}
+                                className="text-[#8696A0] hover:text-white"
+                                title="Reply"
+                              >
+                                <CornerUpLeft className="w-3.5 h-3.5" />
+                              </button>
+                              {isMe && (
+                                <button
+                                  onClick={() => handleDeleteEveryone(msg.id)}
+                                  className="text-red-400 hover:text-red-500"
+                                  title="Delete for Everyone"
+                                >
+                                  <Trash className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div ref={messagesEndRef} />
+              </div>
+            </ScrollArea>
+
+            {/* Composer/Input Bar */}
+            <div className="p-4 bg-[#202C33] border-t border-white/5 flex flex-col gap-2 shrink-0">
+              {/* Attachment Preview Bar */}
+              {pendingFile && (
+                <div className="flex items-center justify-between p-3 bg-black/20 border border-white/5 rounded-2xl">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Paperclip className="w-4 h-4 text-[#00A884]" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-white truncate">{pendingFile.name}</p>
+                      <p className="text-[10px] text-[#8696A0] mt-0.5">{(pendingFile.size / 1024 / 1024).toFixed(2)} MB • Ready to send</p>
+                    </div>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setPendingFile(null)}
+                    className="w-7 h-7 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+
+              {/* Reply Indicator Bar */}
+              {replyingToId && (
+                <div className="flex items-center justify-between px-3 py-2 bg-[#0b141a]/60 border border-[#00A884]/20 rounded-xl text-xs">
+                  <span className="text-[#8696A0]">Replying to message #{replyingToId}</span>
+                  <button onClick={() => { setReplyingToId(null); setMessageInput(""); }} className="text-[#8696A0] hover:text-white">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3">
+                {/* File Upload Button */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={(e) => setPendingFile(e.target.files?.[0] || null)}
+                  className="hidden"
+                />
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-10 h-10 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 hover:text-white shrink-0"
+                >
+                  <Paperclip className="w-4 h-4" />
+                </Button>
+
+                {/* Input Text Box */}
+                <Input
+                  value={messageInput}
+                  onChange={(e) => setMessageInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSendNormal()}
+                  placeholder={pendingFile ? "Press Send to upload attachment..." : "Type a message..."}
+                  className="flex-1 h-10 bg-[#2A3942] border-none text-[#e9edef] placeholder:text-[#8696A0] rounded-xl focus:ring-0"
+                />
+
+                {/* Send Button */}
+                <Button
+                  onClick={handleSendNormal}
+                  className="w-10 h-10 rounded-xl bg-[#00A884] hover:bg-[#008F72] text-white flex items-center justify-center p-0 shrink-0"
+                >
+                  <Send className="w-4.5 h-4.5" />
+                </Button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-[#0B141A]">
+            <Radio className="w-16 h-16 text-[#00A884] opacity-25 animate-pulse mb-4" />
+            <h3 className="text-lg font-bold text-[#e9edef] tracking-wide">No Active Chat Selected</h3>
+            <p className="text-xs text-[#8696A0] max-w-sm mt-1 leading-relaxed">
+              Choose a student from the sidebar thread list to connect, view chat logs, send message announcements or files.
+            </p>
+          </div>
+        )}
+      </section>
+
+      {/* ================= BROADCAST OVERLAY MODAL ================= */}
+      {showBroadcast && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1E293B] border border-white/10 p-6 rounded-3xl w-full max-w-[460px] space-y-4 shadow-2xl relative">
+            <div>
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Radio className="w-5 h-5 text-[#f59e0b]" />
+                {selectedBroadcastCourseId === -1
+                  ? "Broadcast to All Students"
+                  : `Broadcast to Course ${selectedBroadcastCourseId || activeCourseId || ""}`}
+              </h3>
+              <p className="text-xs text-[#8696A0] mt-0.5">
+                This announcement will be dispatched to all students enrolled in this course.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-[#8696A0] uppercase tracking-wider mb-2">Select Course</label>
+              <select
+                value={selectedBroadcastCourseId === -1 ? "-1" : selectedBroadcastCourseId || ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedBroadcastCourseId(val === "-1" ? -1 : val ? Number(val) : null);
+                }}
+                className="w-full h-10 border border-white/10 rounded-xl px-3 bg-[#0F172A] text-white text-sm outline-none focus:ring-1 focus:ring-[#f59e0b]"
+              >
+                <option value="">-- Choose Target --</option>
+                <option value="-1">All Students (All Courses)</option>
+                {courses.map((course) => (
+                  <option key={course.id} value={course.id}>
+                    {course.title || `Course ${course.id}`}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             <textarea
-              className="w-full border rounded-md p-3 h-28"
-              placeholder="Type announcement..."
+              className="w-full border border-white/10 rounded-2xl p-3 h-28 bg-[#0F172A] text-white outline-none focus:ring-1 focus:ring-[#f59e0b] text-sm resize-none"
+              placeholder="Type your course announcement here..."
               value={broadcastText}
               onChange={(e) => setBroadcastText(e.target.value)}
             />
 
-            <input
-              type="file"
-              onChange={(e) =>
-                setBroadcastFile(e.target.files?.[0] || null)
-              }
-            />
+            <div className="space-y-2">
+              <input
+                type="file"
+                ref={broadcastFileInputRef}
+                onChange={(e) => setBroadcastPendingFile(e.target.files?.[0] || null)}
+                className="hidden"
+              />
+              <Button
+                onClick={() => broadcastFileInputRef.current?.click()}
+                className="w-full h-10 border border-white/10 bg-[#0F172A] hover:bg-black/40 text-slate-300 hover:text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2"
+              >
+                <Paperclip className="w-3.5 h-3.5 text-[#f59e0b]" />
+                {broadcastPendingFile ? "Change File / Image" : "Attach File or Image"}
+              </Button>
 
-            <div className="flex justify-end gap-3">
+              {broadcastPendingFile && (
+                <div className="bg-[#0F172A] border border-white/5 p-3 rounded-2xl flex items-center justify-between">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-white truncate">{broadcastPendingFile.name}</p>
+                    <p className="text-[10px] text-[#8696A0] mt-0.5">{(broadcastPendingFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                    {broadcastPendingFile.type.startsWith("image/") && (
+                      <div className="mt-2 max-h-[140px] overflow-hidden rounded-lg">
+                        <img
+                          src={URL.createObjectURL(broadcastPendingFile)}
+                          alt="preview"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setBroadcastPendingFile(null)}
+                    className="w-7 h-7 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
               <Button
                 variant="secondary"
-                onClick={() => setShowBroadcast(false)}
+                onClick={() => {
+                  setBroadcastPendingFile(null);
+                  setShowBroadcast(false);
+                }}
+                className="h-10 px-5 rounded-xl text-xs font-bold border border-white/5 hover:bg-white/5"
               >
                 Cancel
               </Button>
-              <Button onClick={handleBroadcastSend}>
-                Send Broadcast
+              <Button
+                onClick={handleSendBroadcast}
+                disabled={broadcastLoading}
+                className="h-10 px-6 rounded-xl text-xs font-bold bg-[#f59e0b] hover:bg-[#d97706] text-white flex items-center justify-center gap-2"
+              >
+                {broadcastLoading ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  "Send Broadcast"
+                )}
               </Button>
             </div>
           </div>
         </div>
       )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-250px)]">
-
-        {/* THREAD LIST */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Messages</CardTitle>
-          </CardHeader>
-
-          <CardContent className="p-4">
-            <Input
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </CardContent>
-
-          <CardContent className="p-0">
-            <ScrollArea className="h-[calc(100vh-420px)]">
-              {filteredThreads.map((thread) => (
-                <div
-                  key={thread.thread_id}
-                  className="p-4 border-b cursor-pointer hover:bg-muted/50"
-                  onClick={() => handleSelectThread(thread)}
-                >
-                  <div className="flex justify-between">
-                    <span>{thread.student?.name}</span>
-                    {thread.unread_count > 0 && (
-                      <Badge>{thread.unread_count}</Badge>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </ScrollArea>
-          </CardContent>
-        </Card>
-
-        {/* CHAT WINDOW */}
-        <Card className="lg:col-span-2 flex flex-col">
-          {selectedThread ? (
-            <>
-              <CardHeader>
-                <CardTitle>{selectedThread.student?.name}</CardTitle>
-              </CardHeader>
-
-              <CardContent className="flex-1 p-0">
-                <ScrollArea className="h-[calc(100vh-500px)] p-4">
-                  <div className="space-y-4">
-                    <button
-                      className="text-sm underline mb-2"
-                      onClick={loadEarlier}
-                      disabled={messages.length === 0}
-                    >
-                      Load earlier messages
-                    </button>
-                    {messages.map((msg) => (
-                      <MessageBubble key={msg.id} msg={msg} />
-                    ))}
-                    <div ref={bottomRef} />
-                  </div>
-                </ScrollArea>
-              </CardContent>
-
-              <div className="p-4 border-t flex gap-2 items-center">
-                <label className="cursor-pointer">
-                  <Paperclip className="w-5 h-5" />
-                  <input
-                    type="file"
-                    hidden
-                    onChange={(e) =>
-                      setSelectedFile(e.target.files?.[0] || null)
-                    }
-                  />
-                </label>
-
-                <Input
-                  placeholder="Type your message..."
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSend()}
-                />
-
-                <Button onClick={handleSend}>
-                  <Send className="w-4 h-4" />
-                </Button>
-              </div>
-            </>
-          ) : (
-            <CardContent className="flex items-center justify-center h-full">
-              Select a chat
-            </CardContent>
-          )}
-        </Card>
-      </div>
-    </div>
-  );
-};
-
-const MessageBubble = ({ msg }: { msg: Message }) => {
-  const isTrainer = msg.sender_role === "trainer";
-
-  return (
-    <div className={`flex ${isTrainer ? "justify-end" : "justify-start"}`}>
-      <div className="max-w-[70%] rounded-lg p-3 bg-muted">
-        {msg.message_type === "text" && (
-          <p className="text-sm">{msg.content}</p>
-        )}
-
-        {msg.message_type === "file" &&
-          msg.file_type?.startsWith("image") && (
-            <img
-              src={msg.file_data}
-              alt={msg.file_name}
-              className="max-w-xs rounded-md"
-            />
-          )}
-
-        {msg.message_type === "file" &&
-          !msg.file_type?.startsWith("image") && (
-            <a
-              href={msg.file_data}
-              download={msg.file_name}
-              className="text-blue-600 underline text-sm"
-            >
-              📄 {msg.file_name}
-            </a>
-          )}
-
-        <p className="text-xs mt-1 opacity-70">
-          {new Date(msg.created_at).toLocaleTimeString()}
-        </p>
-      </div>
     </div>
   );
 };
 
 export default Chat;
-
-
-// import { useEffect, useRef, useState } from "react";
-// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// import { Input } from "@/components/ui/input";
-// import { Button } from "@/components/ui/button";
-// import { ScrollArea } from "@/components/ui/scroll-area";
-// import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-// import { Send, Search, Paperclip } from "lucide-react";
-// import { Badge } from "@/components/ui/badge";
-
-// interface Thread {
-//   thread_id: number;
-//   course_id: number;
-//   unread_count: number;
-//   student?: {
-//     id: number;
-//     name: string;
-//   };
-// }
-
-// interface Message {
-//   id: number;
-//   sender_role: string;
-//   content?: string;
-//   created_at: string;
-//   thread_id: number;
-//   file_key?: string;
-//   file_name?: string;
-//   file_mime?: string;
-//   message_type?: string;
-// }
-
-// const API_BASE = "http://192.168.0.122:10000";
-// const WS_BASE = "ws://192.168.0.122:10000";
-
-// const Chat = () => {
-//   const [threads, setThreads] = useState<Thread[]>([]);
-//   const [selectedThread, setSelectedThread] = useState<Thread | null>(null);
-//   const [messages, setMessages] = useState<Message[]>([]);
-//   const [message, setMessage] = useState("");
-//   const [searchQuery, setSearchQuery] = useState("");
-//   const [pendingFile, setPendingFile] = useState<File | null>(null);
-
-//   const wsRef = useRef<WebSocket | null>(null);
-//   const fileInputRef = useRef<HTMLInputElement | null>(null);
-//   const bottomRef = useRef<HTMLDivElement | null>(null);
-
-//   const token = localStorage.getItem("access_token");
-
-
-//   const SecureImage = ({ fileKey }: { fileKey: string }) => {
-//   const [src, setSrc] = useState<string | null>(null);
-//   const token = localStorage.getItem("access_token");
-
-//   useEffect(() => {
-//     const loadImage = async () => {
-//       try {
-//         const res = await fetch(
-//           `${API_BASE}/chat/file/${fileKey}`,
-//           {
-//             headers: {
-//               Authorization: `Bearer ${token}`,
-//             },
-//           }
-//         );
-
-//         if (!res.ok) throw new Error("Image load failed");
-
-//         const blob = await res.blob();
-//         const url = URL.createObjectURL(blob);
-//         setSrc(url);
-//       } catch (err) {
-//         console.error(err);
-//       }
-//     };
-
-//     loadImage();
-//   }, [fileKey]);
-
-//   if (!src) return <div className="text-xs">Loading image...</div>;
-
-//   return (
-//     <img
-//       src={src}
-//       alt="chat-img"
-//       className="rounded-lg max-h-72 object-cover"
-//     />
-//   );
-// };
-
-//   // ================= API =================
-//   const api = async (path: string) => {
-//     const res = await fetch(`${API_BASE}${path}`, {
-//       headers: { Authorization: `Bearer ${token}` },
-//     });
-//     if (!res.ok) throw new Error(await res.text());
-//     return res.json();
-//   };
-
-//   const uploadAttachment = async (threadId: number, file: File) => {
-//     const fd = new FormData();
-//     fd.append("upload", file);
-
-//     const res = await fetch(
-//       `${API_BASE}/chat/thread/${threadId}/upload`,
-//       {
-//         method: "POST",
-//         headers: { Authorization: `Bearer ${token}` },
-//         body: fd,
-//       }
-//     );
-
-//     if (!res.ok) throw new Error(await res.text());
-//     return res.json();
-//   };
-
-//   // ================= Load Threads =================
-//   useEffect(() => {
-//     if (!token) return;
-//     api("/chat/trainer/threads")
-//       .then(setThreads)
-//       .catch(console.error);
-//   }, []);
-
-//   const loadMessages = async (threadId: number) => {
-//     const data = await api(`/chat/thread/${threadId}/messages`);
-//     setMessages(data);
-//   };
-
-//   // ================= WebSocket =================
-//   const connectWS = (threadId: number) => {
-//     if (wsRef.current) wsRef.current.close();
-
-//     const ws = new WebSocket(
-//       `${WS_BASE}/ws/chat/${threadId}?token=${encodeURIComponent(token || "")}`
-//     );
-
-//     ws.onmessage = (event) => {
-//       const msg = JSON.parse(event.data);
-//       if (msg.type === "message") {
-//         setMessages((prev) => [...prev, msg]);
-//       }
-//     };
-
-//     wsRef.current = ws;
-//   };
-
-//   const handleSelectThread = (thread: Thread) => {
-//     setSelectedThread(thread);
-//     loadMessages(thread.thread_id);
-//     connectWS(thread.thread_id);
-//   };
-
-//   // ================= SEND =================
-//   const handleSend = async () => {
-//     if (!selectedThread) return;
-//     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
-
-//     // ===== FILE SEND =====
-//     if (pendingFile) {
-//       try {
-//         const fileData = await uploadAttachment(
-//           selectedThread.thread_id,
-//           pendingFile
-//         );
-
-//         wsRef.current.send(
-//           JSON.stringify({
-//             type: "message",
-//             content: null,
-//             file_key: fileData.file_key,
-//             file_name: fileData.file_name,
-//             file_mime: fileData.file_mime,
-//             message_type: pendingFile.type.startsWith("image/")
-//               ? "image"
-//               : "file",
-//           })
-//         );
-
-//         setPendingFile(null);
-//       } catch (err: any) {
-//         alert(err.message);
-//       }
-//       return;
-//     }
-
-//     // ===== TEXT SEND =====
-//     if (!message.trim()) return;
-
-//     wsRef.current.send(
-//       JSON.stringify({
-//         type: "message",
-//         content: message,
-//         message_type: "text",
-//       })
-//     );
-
-//     setMessage("");
-//   };
-
-//   // Auto scroll
-//   useEffect(() => {
-//     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-//   }, [messages]);
-
-//   const filteredThreads = threads.filter((t) =>
-//     t.student?.name.toLowerCase().includes(searchQuery.toLowerCase())
-//   );
-
-//   return (
-//     <div className="space-y-6">
-//       <h1 className="text-3xl font-bold">Chat</h1>
-
-//       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-250px)]">
-
-//         {/* LEFT SIDE */}
-//         <Card>
-//           <CardHeader>
-//             <CardTitle>Messages</CardTitle>
-//           </CardHeader>
-
-//           <CardContent className="p-4">
-//             <div className="relative mb-4">
-//               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" />
-//               <Input
-//                 placeholder="Search..."
-//                 value={searchQuery}
-//                 onChange={(e) => setSearchQuery(e.target.value)}
-//                 className="pl-10"
-//               />
-//             </div>
-//           </CardContent>
-
-//           <CardContent className="p-0">
-//             <ScrollArea className="h-[calc(100vh-420px)]">
-//               {filteredThreads.map((thread) => (
-//                 <div
-//                   key={thread.thread_id}
-//                   className={`p-4 border-b cursor-pointer ${
-//                     selectedThread?.thread_id === thread.thread_id
-//                       ? "bg-muted"
-//                       : "hover:bg-muted/50"
-//                   }`}
-//                   onClick={() => handleSelectThread(thread)}
-//                 >
-//                   <div className="flex items-center gap-3">
-//                     <Avatar>
-//                       <AvatarFallback>
-//                         {thread.student?.name?.charAt(0)}
-//                       </AvatarFallback>
-//                     </Avatar>
-//                     <div className="flex-1">
-//                       <h4 className="font-semibold">
-//                         {thread.student?.name}
-//                       </h4>
-//                       {thread.unread_count > 0 && (
-//                         <Badge>{thread.unread_count}</Badge>
-//                       )}
-//                     </div>
-//                   </div>
-//                 </div>
-//               ))}
-//             </ScrollArea>
-//           </CardContent>
-//         </Card>
-
-//         {/* RIGHT SIDE */}
-//         <Card className="lg:col-span-2 flex flex-col">
-//           {selectedThread ? (
-//             <>
-//               <CardHeader>
-//                 <CardTitle>{selectedThread.student?.name}</CardTitle>
-//               </CardHeader>
-
-//               <CardContent className="flex-1 p-4 overflow-auto">
-//                 <div className="space-y-4">
-//                   {messages.map((msg) => (
-//                     <div
-//                       key={msg.id}
-//                       className={`flex ${
-//                         msg.sender_role === "trainer"
-//                           ? "justify-end"
-//                           : "justify-start"
-//                       }`}
-//                     >
-//                       <div className="max-w-[75%] rounded-xl p-3 bg-muted shadow">
-
-//                         {/* IMAGE */}
-//                         {msg.file_key && msg.message_type === "image" && (
-//   <SecureImage fileKey={msg.file_key} />
-// )}
-
-//                         {/* FILE */}
-//                         {msg.file_key && msg.message_type === "file" && (
-//                           <a
-//                             href={`${API_BASE}/chat/file/${msg.file_key}`}
-//                             target="_blank"
-//                             rel="noreferrer"
-//                             className="underline text-blue-600 font-medium"
-//                           >
-//                             {msg.file_name}
-//                           </a>
-//                         )}
-
-//                         {/* TEXT */}
-//                         {!msg.file_key && (
-//                           <p className="text-sm whitespace-pre-wrap">
-//                             {msg.content}
-//                           </p>
-//                         )}
-
-//                         <p className="text-xs mt-2 opacity-60 text-right">
-//                           {new Date(msg.created_at).toLocaleTimeString([], {
-//                             hour: "2-digit",
-//                             minute: "2-digit",
-//                           })}
-//                         </p>
-//                       </div>
-//                     </div>
-//                   ))}
-
-//                   <div ref={bottomRef} />
-//                 </div>
-//               </CardContent>
-
-//               {/* INPUT */}
-//               <div className="p-4 border-t flex gap-2 items-center">
-//                 <input
-//                   type="file"
-//                   ref={fileInputRef}
-//                   hidden
-//                   onChange={(e) =>
-//                     setPendingFile(e.target.files?.[0] || null)
-//                   }
-//                 />
-
-//                 <Button
-//                   variant="outline"
-//                   size="icon"
-//                   onClick={() => fileInputRef.current?.click()}
-//                 >
-//                   <Paperclip className="w-4 h-4" />
-//                 </Button>
-
-//                 <Input
-//                   placeholder="Type your message..."
-//                   value={message}
-//                   onChange={(e) => setMessage(e.target.value)}
-//                   onKeyDown={(e) => e.key === "Enter" && handleSend()}
-//                 />
-
-//                 <Button onClick={handleSend}>
-//                   <Send className="w-4 h-4" />
-//                 </Button>
-//               </div>
-
-//               {pendingFile && (
-//                 <div className="px-4 pb-2 text-sm text-muted-foreground">
-//                   Attached: {pendingFile.name}
-//                 </div>
-//               )}
-//             </>
-//           ) : (
-//             <CardContent className="flex items-center justify-center h-full">
-//               Select a chat
-//             </CardContent>
-//           )}
-//         </Card>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default Chat;

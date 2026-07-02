@@ -1,610 +1,203 @@
-// import { useEffect, useState } from "react";
-// import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-// import { Button } from "@/components/ui/button";
-// import { Input } from "@/components/ui/input";
-// import { Label } from "@/components/ui/label";
-// import { Textarea } from "@/components/ui/textarea";
-// import { toast } from "sonner";
-
-// const COURSE_API = "http://192.168.0.122:10000/trainer/courses";
-// const STUDENT_API = "http://192.168.0.122:10000/trainer/my-students";
-// const BASE_API = "http://192.168.0.122:10000";
-
-// const Curriculum = () => {
-//   const token = localStorage.getItem("access_token");
-
-//   const [courses, setCourses] = useState<any[]>([]);
-//   const [students, setStudents] = useState<any[]>([]);
-//   const [curriculumList, setCurriculumList] = useState<any[]>([]);
-//   const [editModuleId, setEditModuleId] = useState<number | null>(null);
-
-
-//   const [selectedCourseId, setSelectedCourseId] = useState("");
-//   const [selectedProgressCourseId, setSelectedProgressCourseId] = useState("");
-//   const [selectedStudentId, setSelectedStudentId] = useState("");
-
-//   const [progressData, setProgressData] = useState<any>(null);
-//   const [loading, setLoading] = useState(false);
-//   const [showForm, setShowForm] = useState(false);
-//   const [editId, setEditId] = useState<number | null>(null);
-
-//   const [formData, setFormData] = useState({
-//     course_id: "",
-//     title: "",
-//     description: "",
-//     order_index: 0,
-//     is_active: true,
-//   });
-
-
- 
- 
- 
-
-  // /* ================= FETCH COURSES ================= */
-  // const fetchCourses = async () => {
-  //   try {
-  //     const res = await fetch(COURSE_API, {
-  //       headers: { Authorization: `Bearer ${token}` },
-  //     });
-
-  //     if (!res.ok) throw new Error("Courses fetch failed");
-
-  //     const data = await res.json();
-  //     setCourses(Array.isArray(data) ? data : data?.data || []);
-  //   } catch (error) {
-  //     toast.error("Failed to fetch courses");
-  //   }
-  // };
-
-  // useEffect(() => {
-  //   fetchCourses();
-  // }, []);
-
-  // /* ================= GET CURRICULUM ================= */
-  // const handleGetCurriculum = async () => {
-  //   if (!selectedCourseId) {
-  //     toast.error("Please select course");
-  //     return;
-  //   }
-
-  //   try {
-  //     setLoading(true);
-
-  //     const res = await fetch(
-  //       `${BASE_API}/courses/trainer/${selectedCourseId}/curriculum`,
-  //       {
-  //         headers: { Authorization: `Bearer ${token}` },
-  //       }
-  //     );
-
-  //     if (!res.ok) throw new Error("Failed to fetch curriculum");
-
-  //     const data = await res.json();
-  //     setCurriculumList(Array.isArray(data) ? data : []);
-  //   } catch (error) {
-  //     toast.error("Failed to fetch curriculum");
-  //     setCurriculumList([]);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-  // /* ================= HANDLE INPUT ================= */
-  // const handleChange = (e: any) => {
-  //   const { name, value } = e.target;
-
-  //   setFormData((prev) => ({
-  //     ...prev,
-  //     [name]:
-  //       name === "order_index"
-  //         ? Number(value)
-  //         : name === "is_active"
-  //         ? value === "true"
-  //         : value,
-  //   }));
-  // };
-
-  // /* ================= CREATE OR UPDATE ================= */
-  // const handleSubmit = async (e: any) => {
-  //   e.preventDefault();
-
-  //   if (!formData.course_id) {
-  //     toast.error("Please select course");
-  //     return;
-  //   }
-
-  //   try {
-  //     setLoading(true);
-
-  //     const url = editModuleId
-  //       ? `${BASE_API}/courses/${formData.course_id}/curriculum/${editModuleId}`
-  //       : `${BASE_API}/courses/${formData.course_id}/curriculum`;
-
-  //     const method = editModuleId ? "PUT" : "POST";
-
-  //     const res = await fetch(url, {
-  //       method,
-  //       headers: {
-  //         Authorization: `Bearer ${token}`,
-  //         "Content-Type": "application/json",
-  //       },
-  //       body: JSON.stringify({
-  //         title: formData.title,
-  //         description: formData.description,
-  //         order_index: formData.order_index,
-  //         is_active: formData.is_active,
-  //       }),
-  //     });
-
-  //     if (!res.ok) throw new Error("Failed to save curriculum");
-
-  //     toast.success(
-  //       editModuleId
-  //         ? "Curriculum updated successfully"
-  //         : "Curriculum created successfully"
-  //     );
-
-  //     setShowForm(false);
-  //     setEditModuleId(null);
-  //     handleGetCurriculum();
-
-  //     setFormData({
-  //       course_id: "",
-  //       title: "",
-  //       description: "",
-  //       order_index: 0,
-  //       is_active: true,
-  //     });
-  //   } catch (error) {
-  //     toast.error("Operation failed");
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
-  // /* ================= DELETE ================= */
-  // const handleDelete = async (courseId: number, moduleId: number) => {
-  //   if (!window.confirm("Are you sure you want to delete this module?"))
-  //     return;
-
-  //   try {
-  //     const res = await fetch(
-  //       `${BASE_API}/courses/${courseId}/curriculum/${moduleId}`,
-  //       {
-  //         method: "DELETE",
-  //         headers: { Authorization: `Bearer ${token}` },
-  //       }
-  //     );
-
-  //     if (!res.ok) throw new Error("Delete failed");
-
-  //     toast.success("Curriculum deleted successfully");
-  //     handleGetCurriculum();
-  //   } catch (error) {
-  //     toast.error("Failed to delete curriculum");
-  //   }
-  // };
-
-//     /* ================= GET PROGRESS ================= */
-// const handleGetProgress = async () => {
-//   if (!selectedProgressCourseId || !selectedStudentId) {
-//     toast.error("Select course and student");
-//     return;
-//   }
-
-//   try {
-//     setLoading(true);
-
-//     const res = await fetch(
-//       `${BASE_API}/courses/trainer/students/${selectedStudentId}/courses/${selectedProgressCourseId}/progress`,
-//       {
-//         method: "GET",
-//         headers: {
-//           Authorization: `Bearer ${token}`,
-//           "Content-Type": "application/json",
-//         },
-//       }
-//     );
-
-//     if (!res.ok) {
-//       throw new Error("Failed to fetch progress");
-//     }
-
-//     const data = await res.json();
-
-//     setProgressData(data);
-//     toast.success("Progress fetched successfully");
-
-//   } catch (error) {
-//     toast.error("Failed to fetch progress");
-//     setProgressData(null);
-//   } finally {
-//     setLoading(false);
-//   }
-// };
-
-//   return (
-//     <div className="p-6 space-y-6">
-//       <h1 className="text-2xl font-bold">Curriculum Management</h1>
-
-      // <Button onClick={() => setShowForm(!showForm)}>
-      //   {showForm ? "Close Form" : "Add Curriculum"}
-      // </Button>
-
-     
-
-      // {/* ================= FORM ================= */}
-      
-
-      // {showForm && (
-      //   <Card>
-      //     <CardHeader>
-      //       <CardTitle>
-      //         {editModuleId ? "Update Curriculum" : "Add Curriculum"}
-      //       </CardTitle>
-      //     </CardHeader>
-      //     <CardContent>
-      //       <form onSubmit={handleSubmit} className="space-y-4">
-      //         <div>
-      //           <Label>Select Course</Label>
-      //           <select
-      //             name="course_id"
-      //             className="w-full border p-2 rounded"
-      //             value={formData.course_id}
-      //             onChange={handleChange}
-      //             required
-      //           >
-      //             <option value="">-- Select Course --</option>
-      //             {courses.map((course) => (
-      //               <option key={course.id} value={course.id}>
-      //                 {course.title}
-      //               </option>
-      //             ))}
-      //           </select>
-      //         </div>
-
-      //         <Input
-      //           name="title"
-      //           placeholder="Title"
-      //           value={formData.title}
-      //           onChange={handleChange}
-      //           required
-      //         />
-
-      //         <Textarea
-      //           name="description"
-      //           placeholder="Description"
-      //           value={formData.description}
-      //           onChange={handleChange}
-      //         />
-
-      //         <Input
-      //           type="number"
-      //           name="order_index"
-      //           placeholder="Order Index"
-      //           value={formData.order_index}
-      //           onChange={handleChange}
-      //         />
-
-      //         <select
-      //           name="is_active"
-      //           className="w-full border p-2 rounded"
-      //           value={formData.is_active.toString()}
-      //           onChange={handleChange}
-      //         >
-      //           <option value="true">true</option>
-      //           <option value="false">false</option>
-      //         </select>
-
-      //         <Button type="submit" className="w-full">
-      //           {editModuleId ? "Update Curriculum" : "Create Curriculum"}
-      //         </Button>
-      //       </form>
-      //     </CardContent>
-      //   </Card>
-      // )}
-
-      // {/* ================= TABLE ================= */}
-      // <Card>
-      //   <CardHeader>
-      //     <CardTitle>Curriculum List</CardTitle>
-      //   </CardHeader>
-      //   <CardContent>
-      //     {curriculumList.length === 0 ? (
-      //       <p className="text-center py-4">No data loaded</p>
-      //     ) : (
-      //       <table className="w-full border text-sm">
-      //         <thead>
-      //           <tr className="bg-gray-100 text-center">
-      //             <th className="p-2">ID</th>
-      //             <th className="p-2">Course ID</th>
-      //             <th className="p-2">Title</th>
-      //             <th className="p-2">Description</th>
-      //             <th className="p-2">Order</th>
-      //             <th className="p-2">Active</th>
-      //             <th className="p-2">Actions</th>
-      //           </tr>
-      //         </thead>
-      //         <tbody>
-      //           {curriculumList.map((item) => (
-      //             <tr key={item.id} className="text-center border-b">
-      //               <td className="p-2">{item.id}</td>
-      //               <td className="p-2">{item.course_id}</td>
-      //               <td className="p-2">{item.title}</td>
-      //               <td className="p-2">{item.description}</td>
-      //               <td className="p-2">{item.order_index}</td>
-      //               <td className="p-2">
-      //                 {item.is_active ? "true" : "false"}
-      //               </td>
-      //               <td className="p-2 space-x-2">
-      //                 <Button
-      //                   size="sm"
-      //                   onClick={() => {
-      //                     setFormData({
-      //                       course_id: item.course_id,
-      //                       title: item.title,
-      //                       description: item.description,
-      //                       order_index: item.order_index,
-      //                       is_active: item.is_active,
-      //                     });
-      //                     setEditModuleId(item.id);
-      //                     setShowForm(true);
-      //                   }}
-      //                 >
-      //                   Edit
-      //                 </Button>
-
-      //                 <Button
-      //                   size="sm"
-      //                   variant="destructive"
-      //                   onClick={() =>
-      //                     handleDelete(item.course_id, item.id)
-      //                   }
-      //                 >
-      //                   Delete
-      //                 </Button>
-      //               </td>
-      //             </tr>
-      //           ))}
-      //         </tbody>
-      //       </table>
-      //     )}
-      //   </CardContent>
-      // </Card>
-
-//          {/* GET CURRICULUM */}
-//       <Card>
-//         <CardHeader>
-//           <CardTitle>Get Curriculum</CardTitle>
-//         </CardHeader>
-//         <CardContent className="flex gap-4">
-//           <select
-//             className="border p-2 rounded"
-//             value={selectedCourseId}
-//             onChange={(e) => setSelectedCourseId(e.target.value)}
-//           >
-//             <option value="">Select Course</option>
-//             {courses.map((c) => (
-//               <option key={c.id} value={c.id}>{c.title}</option>
-//             ))}
-//           </select>
-
-//           <Button onClick={handleGetCurriculum}>
-//             Fetch Curriculum
-//           </Button>
-//         </CardContent>
-//       </Card>
-
-//       {/* TABLE */}
-      
-//        {/* GET PROGRESS */}
-//       <Card>
-//         <CardHeader>
-//           <CardTitle>Get Progress</CardTitle>
-//         </CardHeader>
-//         <CardContent className="flex gap-4">
-//           <select
-//             className="border p-2 rounded"
-//             value={selectedProgressCourseId}
-//             onChange={(e) =>
-//               setSelectedProgressCourseId(e.target.value)
-//             }
-//           >
-//             <option value="">Select Course</option>
-//             {courses.map((c) => (
-//               <option key={c.id} value={c.id}>{c.title}</option>
-//             ))}
-//           </select>
-
-//           <select
-//             className="border p-2 rounded"
-//             value={selectedStudentId}
-//             onChange={(e) => setSelectedStudentId(e.target.value)}
-//           >
-//             <option value="">Select Student</option>
-//             {students.map((s) => (
-//               <option key={s.id} value={s.id}>{s.name}</option>
-//             ))}
-//           </select>
-
-//           <Button onClick={handleGetProgress}>
-//             Get Progress
-//           </Button>
-//         </CardContent>
-// {progressData && (
-//   <CardContent className="space-y-4 mt-4">
-
-//     <div className="bg-gray-100 p-4 rounded-lg space-y-2">
-//       <p><strong>Student ID:</strong> {progressData.student_id}</p>
-//       <p><strong>Course ID:</strong> {progressData.course_id}</p>
-//       <p>
-//         <strong>Completion Ratio:</strong>{" "}
-//         {(progressData.completion_ratio * 100).toFixed(2)}%
-//       </p>
-//       <p>
-//         <strong>Completed Modules:</strong>{" "}
-//         {progressData.completed_modules} / {progressData.total_modules}
-//       </p>
-//     </div>
-
-//     {/* Progress Bar */}
-//     <div className="w-full bg-gray-200 rounded-full h-4">
-//       <div
-//         className="bg-green-500 h-4 rounded-full"
-//         style={{
-//           width: `${progressData.completion_ratio * 100}%`,
-//         }}
-//       />
-//     </div>
-
-//     {/* Modules List */}
-//     <div>
-//       <h3 className="font-semibold mb-2">Modules Status</h3>
-//       <table className="w-full border text-sm">
-//         <thead>
-//           <tr className="bg-gray-100 text-center">
-//             <th className="border p-2">Module ID</th>
-//             <th className="border p-2">Status</th>
-//             <th className="border p-2">Completed At</th>
-//           </tr>
-//         </thead>
-//         <tbody>
-//           {progressData.modules?.map((module: any) => (
-//             <tr key={module.module_id} className="text-center border-b">
-//               <td className="border p-2">{module.module_id}</td>
-//               <td className="border p-2">
-//                 {module.status === "completed" ? (
-//                   <span className="text-green-600 font-semibold">
-//                     Completed
-//                   </span>
-//                 ) : (
-//                   <span className="text-red-500">
-//                     {module.status}
-//                   </span>
-//                 )}
-//               </td>
-//               <td className="border p-2">
-//                 {module.completed_at
-//                   ? new Date(module.completed_at).toLocaleString()
-//                   : "—"}
-//               </td>
-//             </tr>
-//           ))}
-//         </tbody>
-//       </table>
-//     </div>
-
-//   </CardContent>
-// )}
-//       </Card>
-//     </div>
-//   );
-// };
-
-// export default Curriculum;
-
-
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Search, Download, Edit, Trash2, BookOpen } from "lucide-react";
 import { toast } from "sonner";
+import GetProgress from "@/components/GetProgress";
 
-const COURSE_API = "http://192.168.0.122:10000/trainer/courses";
-const STUDENT_API = "http://192.168.0.122:10000/trainer/my-students";
-const BASE_API = "http://192.168.0.122:10000";
+const BASE_API = "https://lauratek.in:8000";
 
 const Curriculum = () => {
+  const navigate = useNavigate();
   const token = localStorage.getItem("access_token");
 
   const [courses, setCourses] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [curriculumList, setCurriculumList] = useState<any[]>([]);
-  const [editModuleId, setEditModuleId] = useState<number | null>(null);
-
-  const [selectedCourseId, setSelectedCourseId] = useState("");
-  const [selectedProgressCourseId, setSelectedProgressCourseId] = useState("");
+  const [selectedCourseId, setSelectedCourseId] = useState("all");
   const [selectedStudentId, setSelectedStudentId] = useState("");
-
-  const [progressData, setProgressData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
+  const [expandedDesc, setExpandedDesc] = useState<Record<number, boolean>>({});
+  const [triggerRefresh, setTriggerRefresh] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 3;
 
-  const [formData, setFormData] = useState({
-    course_id: "",
-    title: "",
-    description: "",
-    order_index: 0,
-    is_active: true,
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCourseId, selectedStudentId, curriculumList]);
+
+  const [completedModules, setCompletedModules] = useState<Record<number, string>>(() => {
+    const cached = localStorage.getItem("completed_modules");
+    return cached ? JSON.parse(cached) : {};
   });
 
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = curriculumList.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(curriculumList.length / itemsPerPage);
 
- 
-
-
- /* ================= FETCH COURSES ================= */
-  const fetchCourses = async () => {
+  const fetchStudentProgress = async (studentId: string, courseId: string) => {
+    if (!studentId || !courseId || courseId === "all") return;
     try {
-      const res = await fetch(COURSE_API, {
+      const res = await fetch(`${BASE_API}/courses/trainer/students/${studentId}/courses/${courseId}/progress`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      if (!res.ok) throw new Error("Courses fetch failed");
-
-      const data = await res.json();
-      setCourses(Array.isArray(data) ? data : data?.data || []);
-    } catch (error) {
-      toast.error("Failed to fetch courses");
+      if (res.ok) {
+        const data = await res.json();
+        if (data && Array.isArray(data.modules)) {
+          setCompletedModules((prev) => {
+            const updated = { ...prev };
+            data.modules.forEach((mod: any) => {
+              updated[mod.module_id] = mod.status || "pending";
+            });
+            localStorage.setItem("completed_modules", JSON.stringify(updated));
+            return updated;
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch student progress", err);
     }
   };
 
-  /* ================= FETCH STUDENTS ================= */
-  const fetchStudents = async () => {
+  useEffect(() => {
+    setCompletedModules({});
+    if (selectedStudentId && selectedCourseId && selectedCourseId !== "all") {
+      fetchStudentProgress(selectedStudentId, selectedCourseId);
+    }
+  }, [selectedStudentId, selectedCourseId]);
+
+  const updateModuleStatus = async (courseId: number, moduleId: number, status: string) => {
+    if (!selectedStudentId) {
+      toast.error("Please select a student first");
+      return;
+    }
+
     try {
-      const res = await fetch(STUDENT_API, {
-        headers: { Authorization: `Bearer ${token}` },
+      const url = `${BASE_API}/courses/students/${selectedStudentId}/courses/${courseId}/modules/${moduleId}/status?status_value=${status}`;
+      console.log("Calling Update Status API:", url);
+
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
       });
 
-      if (!res.ok) throw new Error("Students fetch failed");
+      console.log("Update Status API Status:", res.status);
+      const resText = await res.text();
+      console.log("Update Status API Response:", resText);
 
+      if (!res.ok) {
+        let errorMessage = "Failed to update module status";
+        try {
+          const errorData = JSON.parse(resText);
+          errorMessage = errorData.detail || errorMessage;
+        } catch (_) { }
+        throw new Error(errorMessage);
+      }
+
+      setCompletedModules((prev) => {
+        const updated = { ...prev, [moduleId]: status };
+        localStorage.setItem("completed_modules", JSON.stringify(updated));
+        return updated;
+      });
+
+      toast.success(`Module status updated to ${status}`);
+      setTriggerRefresh((prev) => prev + 1);
+
+      if (selectedCourseId !== "all") {
+        fetchStudentProgress(selectedStudentId, selectedCourseId);
+      }
+    } catch (err: any) {
+      console.error("Update Status Error:", err);
+      toast.error(err.message || "Failed to update module status");
+    }
+  };
+
+  const toggleDesc = (id: number) => {
+    setExpandedDesc(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  // Fetch Courses
+  const fetchCourses = async () => {
+    try {
+      const res = await fetch(`${BASE_API}/trainer/courses`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = await res.json();
-      setStudents(Array.isArray(data) ? data : data?.data || []);
-    } catch (error) {
-      toast.error("Failed to fetch students");
+      setCourses(Array.isArray(data) ? data : []);
+    } catch (err) {
+      toast.error("Failed to load courses");
+    }
+  };
+
+  const fetchStudents = async () => {
+    try {
+      const res = await fetch(`${BASE_API}/trainer/my-students`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setStudents(Array.isArray(data) ? data : []);
+    } catch (err) {
+      toast.error("Failed to load students");
     }
   };
 
   useEffect(() => {
     fetchCourses();
-    fetchStudents(); // 👈 Added this
+    fetchStudents();
   }, []);
 
-  /* ================= GET CURRICULUM ================= */
+  useEffect(() => {
+    if (courses.length > 0 && selectedCourseId === "all" && curriculumList.length === 0) {
+      handleGetCurriculum();
+    }
+  }, [courses]);
+
+  // Fetch Curriculum
   const handleGetCurriculum = async () => {
     if (!selectedCourseId) {
-      toast.error("Please select course");
+      toast.error("Please select a course");
       return;
     }
 
     try {
       setLoading(true);
-
-      const res = await fetch(
-        `${BASE_API}/courses/trainer/${selectedCourseId}/curriculum`,
-        {
+      if (selectedCourseId === "all") {
+        const allCurriculum: any[] = [];
+        const promises = courses.map(async (course) => {
+          try {
+            const res = await fetch(`${BASE_API}/courses/trainer/${course.id}/curriculum`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (Array.isArray(data)) {
+                // Add course title to each curriculum item so it's clear in the UI
+                const mappedData = data.map(item => ({ ...item, course_title: course.title }));
+                allCurriculum.push(...mappedData);
+              }
+            }
+          } catch (e) {
+            console.error(`Failed to fetch curriculum for course ${course.id}:`, e);
+          }
+        });
+        await Promise.all(promises);
+        setCurriculumList(allCurriculum.sort((a, b) => b.id - a.id));
+      } else {
+        const res = await fetch(`${BASE_API}/courses/trainer/${selectedCourseId}/curriculum`, {
           headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+        });
 
-      if (!res.ok) throw new Error("Failed to fetch curriculum");
-
-      const data = await res.json();
-      setCurriculumList(Array.isArray(data) ? data : []);
-    } catch (error) {
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        setCurriculumList(Array.isArray(data) ? data.sort((a: any, b: any) => b.id - a.id) : []);
+      }
+    } catch {
       toast.error("Failed to fetch curriculum");
       setCurriculumList([]);
     } finally {
@@ -612,454 +205,265 @@ const Curriculum = () => {
     }
   };
 
-  /* ================= HANDLE INPUT ================= */
-  const handleChange = (e: any) => {
-    const { name, value } = e.target;
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]:
-        name === "order_index"
-          ? Number(value)
-          : name === "is_active"
-          ? value === "true"
-          : value,
-    }));
-  };
-
-  /* ================= CREATE OR UPDATE ================= */
-  const handleSubmit = async (e: any) => {
-    e.preventDefault();
-
-    if (!formData.course_id) {
-      toast.error("Please select course");
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const url = editModuleId
-        ? `${BASE_API}/courses/${formData.course_id}/curriculum/${editModuleId}`
-        : `${BASE_API}/courses/${formData.course_id}/curriculum`;
-
-      const method = editModuleId ? "PUT" : "POST";
-
-      const res = await fetch(url, {
-        method,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          title: formData.title,
-          description: formData.description,
-          order_index: formData.order_index,
-          is_active: formData.is_active,
-        }),
-      });
-
-      if (!res.ok) throw new Error("Failed to save curriculum");
-
-      toast.success(
-        editModuleId
-          ? "Curriculum updated successfully"
-          : "Curriculum created successfully"
-      );
-
-      setShowForm(false);
-      setEditModuleId(null);
-      handleGetCurriculum();
-
-      setFormData({
-        course_id: "",
-        title: "",
-        description: "",
-        order_index: 0,
-        is_active: true,
-      });
-    } catch (error) {
-      toast.error("Operation failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /* ================= DELETE ================= */
   const handleDelete = async (courseId: number, moduleId: number) => {
-    if (!window.confirm("Are you sure you want to delete this module?"))
-      return;
+    // Optimistically update the UI to instantly remove the row
+    const previousList = [...curriculumList];
+    setCurriculumList(curriculumList.filter((item) => item.id !== moduleId));
 
     try {
-      const res = await fetch(
-        `${BASE_API}/courses/${courseId}/curriculum/${moduleId}`,
-        {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      const res = await fetch(`${BASE_API}/courses/${courseId}/curriculum/${moduleId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
       if (!res.ok) throw new Error("Delete failed");
 
-      toast.success("Curriculum deleted successfully");
+      toast.success("Module deleted successfully", { duration: 3000 });
+
+      // Keep state in sync without disrupting
       handleGetCurriculum();
-    } catch (error) {
-      toast.error("Failed to delete curriculum");
+    } catch {
+      // Revert UI if the API call fails
+      setCurriculumList(previousList);
+      toast.error("Failed to delete module", { duration: 3000 });
     }
   };
-
-  /* ================= GET PROGRESS ================= */
-  const handleGetProgress = async () => {
-    if (!selectedProgressCourseId || !selectedStudentId) {
-      toast.error("Select course and student");
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const res = await fetch(
-        `${BASE_API}/courses/trainer/students/${selectedStudentId}/courses/${selectedProgressCourseId}/progress`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!res.ok) throw new Error("Failed to fetch progress");
-
-      const data = await res.json();
-      setProgressData(data);
-      toast.success("Progress fetched successfully");
-    } catch (error) {
-      toast.error("Failed to fetch progress");
-      setProgressData(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-  /* ================= UPDATE MODULE STATUS ================= */
-const handleUpdateModuleStatus = async (
-  studentId: number,
-  courseId: number,
-  moduleId: number,
-  statusValue: string
-) => {
-  try {
-    const res = await fetch(
-      `${BASE_API}/courses/students/${studentId}/courses/${courseId}/modules/${moduleId}/status`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          student_id: studentId,
-          course_id: courseId,
-          module_id: moduleId,
-          status_value: statusValue,
-        }),
-      }
-    );
-
-    if (!res.ok) throw new Error("Status update failed");
-
-    toast.success("Module status updated successfully");
-
-    // Refresh progress after update
-    handleGetProgress();
-  } catch (error) {
-    toast.error("Failed to update module status");
-  }
-};
-
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="min-h-screen w-full flex flex-col">
+      {/* Header */}
+      <div className="sticky top-0 z-50 bg-[#F8FAFC] px-2 md:px-3 py-4 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between border-b border-transparent">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold">Curriculum Management</h1>
+          <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-0">Manage and monitor your Curriculum</p>
+        </div>
+        <Button
+          onClick={() => navigate("/curriculum/new")}
+          className="w-full sm:w-auto text-sm font-intern bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white border-0 rounded-xl px-6 h-11 shadow-[0_8px_16px_-2px_rgba(124,58,237,0.5)] hover:shadow-[0_10px_20px_-2px_rgba(124,58,237,0.6)] transition-all duration-300 flex justify-center items-center"
+        >
+          <Plus className="mr-2 h-5 w-5" />
+          Add Curriculum
+        </Button>
+      </div>
 
-      <h1 className="text-2xl font-bold">Curriculum Management</h1>
- <Button onClick={() => setShowForm(!showForm)}>
-        {showForm ? "Close Form" : "Add Curriculum"}
-      </Button>
-
-     
-
-      {/* ================= FORM ================= */}
-      
-
-      {showForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {editModuleId ? "Update Curriculum" : "Add Curriculum"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label>Select Course</Label>
-                <select
-                  name="course_id"
-                  className="w-full border p-2 rounded"
-                  value={formData.course_id}
-                  onChange={handleChange}
-                  required
-                >
-                  <option value="">-- Select Course --</option>
-                  {courses.map((course) => (
-                    <option key={course.id} value={course.id}>
-                      {course.title}
-                    </option>
-                  ))}
-                </select>
+      <div className="p-2 md:p-3 space-y-6 flex-1">
+      {/* Combined Single Card: Fetch + Curriculum List */}
+      <Card className="rounded-[24px] border border-slate-100 shadow-[0_12px_36px_-12px_rgba(0,0,0,0.06)] bg-white overflow-hidden">
+        <CardContent className="p-4 sm:p-6 md:p-8">
+          {/* Top Fetch Section */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 mb-6">
+            <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0">
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#F5F7FA] flex items-center justify-center">
+                <Search className="w-[14px] h-[14px] sm:w-[24px] sm:h-[20px] text-[#2563EB]" />
               </div>
+              <h2 className="text-[20px] sm:text-[22px] font-bold text-[#101828]">
+                Fetch Curriculum
+              </h2>
+            </div>
 
-              <Input
-                name="title"
-                placeholder="Title"
-                value={formData.title}
-                onChange={handleChange}
-                required
-              />
+            <div className="flex flex-1 flex-col sm:flex-row items-center justify-end gap-3 w-full">
+              <Select value={selectedStudentId} onValueChange={setSelectedStudentId}>
+                <SelectTrigger className="w-full sm:w-[220px] h-[42px] rounded-[12px] bg-[#F9FAFB] border border-[#F3F4F6] text-[#111827] font-medium shadow-none focus:ring-0 [&>span]:text-[#111827]">
+                  <SelectValue placeholder="Select Student" />
+                </SelectTrigger>
+                <SelectContent>
+                  {students.map((student) => (
+                    <SelectItem key={student.id} value={student.id.toString()}>
+                      {student.name} (ID: {student.id})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-              <Textarea
-                name="description"
-                placeholder="Description"
-                value={formData.description}
-                onChange={handleChange}
-              />
+              <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
+                <SelectTrigger className="w-full sm:w-[220px] h-[42px] rounded-[12px] bg-[#F9FAFB] border border-[#F3F4F6] text-[#111827] font-medium shadow-none focus:ring-0 [&>span]:text-[#111827]">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Courses</SelectItem>
+                  {courses.map((course) => (
+                    <SelectItem key={course.id} value={course.id.toString()}>
+                      {course.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-              <Input
-                type="number"
-                name="order_index"
-                placeholder="Order Index"
-                value={formData.order_index}
-                onChange={handleChange}
-              />
-
-              <select
-                name="is_active"
-                className="w-full border p-2 rounded"
-                value={formData.is_active.toString()}
-                onChange={handleChange}
+              <Button
+                onClick={handleGetCurriculum}
+                disabled={loading}
+                className="w-full sm:w-auto h-[42px] px-8 rounded-[12px] bg-gradient-to-r from-[#3B82F6] to-[#8B5CF6] hover:from-[#2563EB] hover:to-[#7C3AED] text-white font-medium shadow-none whitespace-nowrap border-0 flex justify-center items-center gap-2"
               >
-                <option value="true">true</option>
-                <option value="false">false</option>
-              </select>
-
-              <Button type="submit" className="w-full">
-                {editModuleId ? "Update Curriculum" : "Create Curriculum"}
+                <Download className="w-5 h-5" />
+                Fetch Data
               </Button>
-            </form>
-          </CardContent>
-        </Card>
-      )}
+            </div>
+          </div>
 
-      {/* ================= TABLE ================= */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Curriculum List</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {curriculumList.length === 0 ? (
-            <p className="text-center py-4">No data loaded</p>
-          ) : (
-            <table className="w-full border text-sm">
-              <thead>
-                <tr className="bg-gray-100 text-center">
-                  <th className="p-2">ID</th>
-                  <th className="p-2">Course ID</th>
-                  <th className="p-2">Title</th>
-                  <th className="p-2">Description</th>
-                  <th className="p-2">Order</th>
-                  <th className="p-2">Active</th>
-                  <th className="p-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {curriculumList.map((item) => (
-                  <tr key={item.id} className="text-center border-b">
-                    <td className="p-2">{item.id}</td>
-                    <td className="p-2">{item.course_id}</td>
-                    <td className="p-2">{item.title}</td>
-                    <td className="p-2">{item.description}</td>
-                    <td className="p-2">{item.order_index}</td>
-                    <td className="p-2">
-                      {item.is_active ? "true" : "false"}
-                    </td>
-                    <td className="p-2 space-x-2">
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          setFormData({
-                            course_id: item.course_id,
-                            title: item.title,
-                            description: item.description,
-                            order_index: item.order_index,
-                            is_active: item.is_active,
-                          });
-                          setEditModuleId(item.id);
-                          setShowForm(true);
-                        }}
-                      >
-                        Edit
-                      </Button>
+          {/* Inner Table Card */}
+          <div className="rounded-[18px] border border-gray-100 overflow-hidden bg-white mt-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 sm:px-6 py-5 sm:py-7">
+              <CardTitle className="text-[20px] sm:text-[24px] font-bold text-gray-900">
+                Curriculum List
+              </CardTitle>
 
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() =>
-                          handleDelete(item.course_id, item.id)
-                        }
-                      >
-                        Delete
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+              <div className="px-4 py-1.5 rounded-full bg-gray-100 text-gray-500 text-[13px] sm:text-sm font-semibold w-fit">
+                Total: {curriculumList.length} Modules
+              </div>
+            </div>
+
+            {curriculumList.length === 0 ? (
+              <div className="text-center py-16 text-gray-500">
+                Select a course and click "Fetch Data" to load curriculum
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto [&::-webkit-scrollbar]:h-[4px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-400">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 border-y border-gray-100 text-gray-500">
+                        <th className="px-4 sm:px-7 py-4 sm:py-5 text-left font-semibold whitespace-nowrap">MODULE ID</th>
+                        <th className="px-4 sm:px-7 py-4 sm:py-5 text-left font-semibold whitespace-nowrap">COURSE ID</th>
+                        <th className="px-4 sm:px-7 py-4 sm:py-5 text-left font-semibold whitespace-nowrap">MODULE TITLE</th>
+                        <th className="px-4 sm:px-7 py-4 sm:py-5 text-center font-semibold whitespace-nowrap">STATUS</th>
+                        <th className="px-4 sm:px-7 py-4 sm:py-5 text-center font-semibold whitespace-nowrap">ACTIONS</th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {currentItems.map((item) => (
+                        <tr
+                          key={item.id}
+                          className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors duration-200"
+                        >
+                          <td className="px-4 sm:px-7 py-4 sm:py-6 text-gray-500 font-medium">
+                            {item.id}
+                          </td>
+
+                          <td className="px-4 sm:px-7 py-4 sm:py-6 text-gray-500 font-medium">
+                            {item.course_id}
+                          </td>
+
+                          <td className="px-4 sm:px-7 py-4 sm:py-6">
+                            <div className="text-[18px] font-bold text-gray-900 leading-tight">
+                              {item.title}
+                            </div>
+                            {item.description && (
+                              <div className="mt-1.5">
+                                <div className="text-[14px] text-gray-500 leading-snug max-h-[38px] overflow-hidden">
+                                  {item.description}
+                                </div>
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="px-4 sm:px-7 py-4 sm:py-6 text-center text-gray-500 font-medium">
+                            {item.is_active ? "Active" : "Inactive"}
+                          </td>
+
+                          <td className="px-4 sm:px-7 py-4 sm:py-6">
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="flex justify-center items-center gap-4">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-blue-600 hover:bg-blue-50 transition-all rounded-lg"
+                                  onClick={() => navigate(`/curriculum/${item.id}/edit`)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-red-600 hover:bg-red-50 transition-all rounded-lg"
+                                  onClick={() => handleDelete(item.course_id, item.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+
+                              {selectedStudentId ? (
+                                <Select
+                                  value={completedModules[item.id] || "pending"}
+                                  onValueChange={(val) => updateModuleStatus(item.course_id, item.id, val)}
+                                >
+                                  <SelectTrigger className={`h-8 w-[130px] rounded-full text-[11.5px] font-bold border transition-all duration-200 cursor-pointer ${
+                                    completedModules[item.id] === "completed"
+                                      ? "bg-[#d1fae5] border-[#6ee7b7] text-[#065f46] hover:bg-[#a7f3d0]"
+                                      : completedModules[item.id] === "in_progress"
+                                      ? "bg-[#dbeafe] border-[#93c5fd] text-[#1e40af] hover:bg-[#bfdbfe]"
+                                      : "bg-[#f3f4f6] border-[#d1d5db] text-[#374151] hover:bg-[#e5e7eb]"
+                                  }`}>
+                                    <SelectValue placeholder="Set Status" />
+                                  </SelectTrigger>
+                                  <SelectContent className="rounded-xl">
+                                    <SelectItem value="pending" className="text-gray-700 text-xs font-semibold">Pending</SelectItem>
+                                    <SelectItem value="in_progress" className="text-blue-700 text-xs font-semibold">In Progress</SelectItem>
+                                    <SelectItem value="completed" className="text-emerald-700 text-xs font-semibold">Completed</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <span className="text-[11px] text-gray-400 font-medium italic">
+                                  Select student to set status
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination — outside overflow-x-auto so no horizontal scrollbar appears below it */}
+                {totalPages > 1 && (
+                  <div className="flex justify-center items-center gap-2 px-4 sm:px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-white text-slate-500 rounded-xl text-[14px] font-medium border border-slate-200 shadow-sm transition-all"
+                    >
+                      Previous
+                    </button>
+                    <div className="flex items-center gap-1.5">
+                      {Array.from({ length: totalPages }).map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setCurrentPage(i + 1)}
+                          className={`w-9 h-9 rounded-xl text-[14px] font-bold transition-all ${
+                            currentPage === i + 1
+                              ? "bg-[#5850EC] text-white shadow-sm"
+                              : "bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm"
+                          }`}
+                        >
+                          {i + 1}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="px-4 py-2 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-white text-slate-500 rounded-xl text-[14px] font-medium border border-slate-200 shadow-sm transition-all"
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* GET CURRICULUM */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Get Curriculum</CardTitle>
-        </CardHeader>
-        <CardContent className="flex gap-4">
-          <select
-            className="border p-2 rounded"
-            value={selectedCourseId}
-            onChange={(e) => setSelectedCourseId(e.target.value)}
-          >
-            <option value="">Select Course</option>
-            {courses.map((c) => (
-              <option key={c.id} value={c.id}>{c.title}</option>
-            ))}
-          </select>
-
-          <Button onClick={handleGetCurriculum}>
-            Fetch Curriculum
-          </Button>
-        </CardContent>
-      </Card>
-
-     
-      {/* GET PROGRESS */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Get Progress</CardTitle>
-        </CardHeader>
-        <CardContent className="flex gap-4">
-          <select
-            className="border p-2 rounded"
-            value={selectedProgressCourseId}
-            onChange={(e) =>
-              setSelectedProgressCourseId(e.target.value)
-            }
-          >
-            <option value="">Select Course</option>
-            {courses.map((c) => (
-              <option key={c.id} value={c.id}>{c.title}</option>
-            ))}
-          </select>
-
-        {/* ✅ STUDENT DROPDOWN ADDED */}
-          <select
-            className="border p-2 rounded"
-            value={selectedStudentId}
-            onChange={(e) => setSelectedStudentId(e.target.value)}
-          >
-            <option value="">Select Student</option>
-            {students.map((student) => (
-              <option key={student.id} value={student.id}>
-                {student.name} (ID: {student.id})
-              </option>
-            ))}
-          </select>
-
-          <Button onClick={handleGetProgress}>
-            Get Progress
-          </Button>
-        </CardContent>
-{progressData && (
-  <CardContent className="space-y-4 mt-4">
-
-    <div className="bg-gray-100 p-4 rounded-lg space-y-2">
-      <p><strong>Student ID:</strong> {progressData.student_id}</p>
-      <p><strong>Course ID:</strong> {progressData.course_id}</p>
-      <p>
-        <strong>Completion Ratio:</strong>{" "}
-        {(progressData.completion_ratio * 100).toFixed(2)}%
-      </p>
-      <p>
-        <strong>Completed Modules:</strong>{" "}
-        {progressData.completed_modules} / {progressData.total_modules}
-      </p>
-    </div>
-
-    {/* Progress Bar */}
-    <div className="w-full bg-gray-200 rounded-full h-4">
-      <div
-        className="bg-green-500 h-4 rounded-full"
-        style={{
-          width: `${progressData.completion_ratio * 100}%`,
-        }}
+      <GetProgress
+        courses={courses}
+        students={students}
+        initialStudentId={selectedStudentId}
+        initialCourseId={selectedCourseId}
+        triggerRefresh={triggerRefresh}
       />
-    </div>
-
-    {/* Modules List */}
-    <div>
-      <h3 className="font-semibold mb-2">Modules Status</h3>
-      <table className="w-full border text-sm">
-        <thead>
-          <tr className="bg-gray-100 text-center">
-            <th className="border p-2">Module ID</th>
-            <th className="border p-2">Status</th>
-            <th className="border p-2">Completed At</th>
-          </tr>
-        </thead>
-        <tbody>
-          {progressData.modules?.map((module: any) => (
-            <tr key={module.module_id} className="text-center border-b">
-              <td className="border p-2">{module.module_id}</td>
-             <td className="border p-2">
-  <select
-    className="border p-1 rounded"
-    value={module.status}
-    onChange={(e) =>
-      handleUpdateModuleStatus(
-        progressData.student_id,
-        progressData.course_id,
-        module.module_id,
-        e.target.value
-      )
-    }
-  >
-    <option value="not_started">Not Started</option>
-    <option value="in_progress">In Progress</option>
-    <option value="completed">Completed</option>
-  </select>
-</td>
-              <td className="border p-2">
-                {module.completed_at
-                  ? new Date(module.completed_at).toLocaleString()
-                  : "—"}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-
-  </CardContent>
-)}
-      </Card>
-
+      </div>
     </div>
   );
 };
