@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { X, Calendar, Clock, BookOpen, Users } from 'lucide-react';
 import { LuSparkles } from 'react-icons/lu';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://lauratek.in:8000";
+import { API_BASE_URL } from "./services/api/api";
 
 export default function ViewExamDetails() {
   const navigate = useNavigate();

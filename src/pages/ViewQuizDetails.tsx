@@ -21,8 +21,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import axiosInstance from "@/api/axiosInstance";
 import { title } from "process";
+import { API_BASE_URL } from "../pages/services/api/api";
 
-const API_BASE = "https://lauratek.in:8000";
+
+
+const API_BASE = API_BASE_URL;
 
 interface Question {
   id: number;

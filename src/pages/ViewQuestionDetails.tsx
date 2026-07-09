@@ -3,9 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { X, Code, ClipboardList, Lightbulb, ChevronLeft } from "lucide-react";
 import { LuSparkles } from "react-icons/lu";
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "https://lauratek.in:8000";
+import { API_BASE_URL } from "./services/api/api";
 
 interface TestCase {
   testcase: number;
@@ -94,7 +92,7 @@ export default function ViewQuestionDetails() {
         <Button 
           onClick={() => navigate("/exam-management")} 
           variant="ghost" 
-          className="mb-6 text-slate-500 rounded-full text-[#7c3aed] bg-[#f3e8ff] hover:bg-[#e9d5ff] hover:text-[#6d28d9] transition-all duration-200 shadow-none font-semibold text-[15px] px-3 py-5"
+          className="mb-6 text-slate-500 rounded-xl text-[#7c3aed] bg-[#f3e8ff] hover:bg-[#e9d5ff] hover:text-[#6d28d9] transition-all duration-200 shadow-none font-semibold text-[15px] px-3 py-5"
         >
           <ChevronLeft className="w-5 h-5 mr-1" />
           Back to Exam Management

@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { API_BASE_URL } from "./services/api/api";
 import {
   Send, Search, Paperclip, Trash2, X, Plus, AlertCircle, Info, Download, Check, CheckCheck, Eye, EyeOff, Radio, CornerUpLeft, Trash
 } from "lucide-react";
@@ -45,14 +46,14 @@ const Chat = () => {
 
   // ================= STATE =================
   const [apiBase, setApiBase] = useState(() => {
-    return localStorage.getItem("chat_api_base") || "https://lauratek.in:8000";
+    return localStorage.getItem("chat_api_base") || API_BASE_URL;
   });
   const [wsBase, setWsBase] = useState(() => {
-    return localStorage.getItem("chat_ws_base") || "wss://lauratek.in:8000";
+    return localStorage.getItem("chat_ws_base") || API_BASE_URL.replace("http", "ws");
   });
   const [jwtToken, setJwtToken] = useState(token);
   const [wsStatus, setWsStatus] = useState("Disconnected");
-  
+
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<number | null>(null);
   const [activeCourseId, setActiveCourseId] = useState<number | null>(null);
@@ -478,7 +479,7 @@ const Chat = () => {
           message_id: msgId,
         }));
       }
-      await apiCall(`/chat/message/${msgId}`, { method: "DELETE" }).catch(() => {});
+      await apiCall(`/chat/message/${msgId}`, { method: "DELETE" }).catch(() => { });
       setMessages((prev) =>
         prev.map((m) =>
           m.id === msgId
@@ -565,44 +566,44 @@ const Chat = () => {
   };
 
   return (
-    <div className="w-full flex h-[calc(100vh-100px)] gap-5 text-[#e9edef] overflow-hidden">
+    <div className="w-full flex h-[calc(100vh-85px)] gap-0 xl:gap-5 px-3 md:px-5 text-gray-900">
       {/* ================= SIDEBAR PANEL ================= */}
-      <aside className="w-[360px] flex-shrink-0 bg-[#111B21] border border-white/5 rounded-3xl p-5 flex flex-col gap-4 shadow-xl">
+      <aside className={`${activeThreadId ? "hidden xl:flex" : "flex"} w-full xl:w-[360px] flex-shrink-0 bg-white border border-gray-200 rounded-3xl p-4 md:p-5 flex-col gap-3 md:gap-4 shadow-xl`}>
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-[#e9edef] flex items-center gap-2">
+          <h2 className="text-xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-[#00A884]" />
             Trainer Panel
           </h2>
-          <p className="text-[11.5px] text-[#8696A0] mt-1">
+          <p className="text-[11.5px] text-gray-500 mt-1">
             Click thread to open chat • Select Mode to hide deleted items.
           </p>
         </div>
 
         {/* Server & Token Config Inputs */}
-        <div className="hidden space-y-2.5 bg-black/20 p-3 rounded-2xl border border-white/5">
+        <div className="hidden space-y-2.5 bg-gray-50 p-3 rounded-2xl border border-gray-200">
           <div>
-            <label className="text-[10px] uppercase font-bold text-[#8696A0] tracking-wider">API Base URL</label>
+            <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">API Base URL</label>
             <Input
               value={apiBase}
               onChange={(e) => handleApiBaseChange(e.target.value)}
-              className="h-8 text-xs bg-black/40 border-white/10 text-white rounded-lg focus:ring-1 focus:ring-[#00A884]"
+              className="h-8 text-xs bg-white border-gray-200 text-gray-900 rounded-lg focus:ring-1 focus:ring-[#00A884]"
             />
           </div>
           <div>
-            <label className="text-[10px] uppercase font-bold text-[#8696A0] tracking-wider">WS Base URL</label>
+            <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">WS Base URL</label>
             <Input
               value={wsBase}
               onChange={(e) => handleWsBaseChange(e.target.value)}
-              className="h-8 text-xs bg-black/40 border-white/10 text-white rounded-lg focus:ring-1 focus:ring-[#00A884]"
+              className="h-8 text-xs bg-white border-gray-200 text-gray-900 rounded-lg focus:ring-1 focus:ring-[#00A884]"
             />
           </div>
           <div>
-            <label className="text-[10px] uppercase font-bold text-[#8696A0] tracking-wider">JWT Token</label>
+            <label className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">JWT Token</label>
             <Input
               value={jwtToken}
               onChange={(e) => handleTokenChange(e.target.value)}
               type="password"
-              className="h-8 text-xs bg-black/40 border-white/10 text-white rounded-lg focus:ring-1 focus:ring-[#00A884]"
+              className="h-8 text-xs bg-white border-gray-200 text-gray-900 rounded-lg focus:ring-1 focus:ring-[#00A884]"
             />
           </div>
         </div>
@@ -623,23 +624,22 @@ const Chat = () => {
         </div>
 
         <div className="flex items-center gap-2 px-2 text-xs">
-          <span className="text-[#8696A0]">WebSocket Status:</span>
+          <span className="text-gray-500">WebSocket Status:</span>
           <span
-            className={`font-semibold ${
-              wsStatus === "Connected" ? "text-[#00E676]" : "text-[#FF1744]"
-            }`}
+            className={`font-semibold ${wsStatus === "Connected" ? "text-[#00E676]" : "text-[#FF1744]"
+              }`}
           >
             {wsStatus}
           </span>
         </div>
 
         <div className="relative">
-          <Search className="w-4 h-4 text-[#8696A0] absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <Input
             placeholder="Search student threads..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-9 bg-[#202C33] border-none text-[#e9edef] placeholder:text-[#8696A0] text-xs rounded-xl focus:ring-1 focus:ring-[#00A884]"
+            className="pl-9 h-9 bg-gray-50 border-gray-200 text-gray-900 placeholder:text-gray-400 text-xs rounded-xl focus:ring-1 focus:ring-[#00A884]"
           />
         </div>
 
@@ -647,7 +647,7 @@ const Chat = () => {
         <ScrollArea className="flex-1 pr-1.5 -mr-1.5">
           <div className="space-y-1.5">
             {filteredThreads.length === 0 ? (
-              <div className="text-center py-6 text-xs text-[#8696A0]">No active threads</div>
+              <div className="text-center py-6 text-xs text-gray-500">No active threads</div>
             ) : (
               filteredThreads.map((thread) => {
                 const isActive = thread.thread_id === activeThreadId;
@@ -655,20 +655,19 @@ const Chat = () => {
                   <div
                     key={thread.thread_id}
                     onClick={() => handleThreadSelect(thread)}
-                    className={`flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-all border ${
-                      isActive
-                        ? "bg-[#2A3942] border-[#00A884]/30"
-                        : "bg-transparent border-transparent hover:bg-[#202C33]"
-                    }`}
+                    className={`flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-all border ${isActive
+                        ? "bg-[#F4FDF9] border-[#00A884]/30"
+                        : "bg-transparent border-transparent hover:bg-gray-50"
+                      }`}
                   >
-                    <Avatar className="w-10 h-10 border border-white/10 shrink-0">
+                    <Avatar className="w-10 h-10 border border-gray-100 shrink-0">
                       <AvatarFallback className="bg-gradient-to-tr from-[#6366f1] to-[#a855f7] text-white font-bold text-xs">
                         {getInitials(thread.student?.name)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-semibold truncate text-[#e9edef]">
+                        <span className="text-sm font-semibold truncate text-gray-900">
                           {thread.student?.name || `Student ${thread.student?.id}`}
                         </span>
                         {thread.unread_count > 0 && (
@@ -677,7 +676,7 @@ const Chat = () => {
                           </Badge>
                         )}
                       </div>
-                      <p className="text-[11.5px] text-[#8696A0] truncate mt-0.5">
+                      <p className="text-[11.5px] text-gray-500 truncate mt-0.5">
                         Course {thread.course_id} • {thread.last_message ? new Date(thread.last_message.created_at).toLocaleDateString() : "No messages"}
                       </p>
                     </div>
@@ -689,15 +688,14 @@ const Chat = () => {
         </ScrollArea>
 
         {/* Multi-Select Hide Mode Controls */}
-        <div className="pt-2 border-t border-white/5 flex gap-2">
+        <div className="pt-2 border-t border-gray-100 flex gap-2">
           <Button
             onClick={() => {
               setSelectMode(!selectMode);
               setSelectedPlaceholders(new Set());
             }}
-            className={`flex-1 h-9 text-xs rounded-xl font-bold ${
-              selectMode ? "bg-[#ef4444] hover:bg-[#dc2626] text-white" : "bg-[#202C33] hover:bg-[#2F3E46] text-[#e9edef]"
-            }`}
+            className={`flex-1 h-9 text-xs rounded-xl font-bold ${selectMode ? "bg-[#ef4444] hover:bg-[#dc2626] text-white" : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+              }`}
           >
             {selectMode ? "Cancel Select" : "Select Mode"}
           </Button>
@@ -714,35 +712,43 @@ const Chat = () => {
       </aside>
 
       {/* ================= MAIN CHAT DISPLAY ================= */}
-      <section className="flex-1 bg-[#0B141A] border border-white/5 rounded-3xl flex flex-col overflow-hidden relative shadow-2xl">
+      <section className={`${!activeThreadId ? "hidden xl:flex" : "flex"} flex-1 min-w-0 w-full bg-white border border-gray-200 rounded-3xl flex-col overflow-hidden relative shadow-xl`}>
         {activeThreadId ? (
           <>
             {/* Chat Area Header */}
-            <div className="h-16 bg-[#202C33] px-5 flex items-center justify-between border-b border-white/5 shrink-0">
-              <div className="flex items-center gap-3">
-                <Avatar className="w-10 h-10 border border-white/5">
+            <div className="h-16 bg-white px-3 md:px-5 flex items-center justify-between border-b border-gray-200 shrink-0">
+              <div className="flex items-center gap-2 md:gap-3">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="xl:hidden h-8 w-8 text-gray-500 hover:text-gray-900 hover:bg-gray-100 shrink-0 -ml-1"
+                  onClick={() => setActiveThreadId(null)}
+                >
+                  <CornerUpLeft className="w-5 h-5" />
+                </Button>
+                <Avatar className="w-10 h-10 border border-gray-200">
                   <AvatarFallback className="bg-gradient-to-tr from-[#3b82f6] to-[#8b5cf6] text-white font-bold text-xs">
                     {getInitials(threads.find((t) => t.thread_id === activeThreadId)?.student?.name)}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <h3 className="text-sm font-bold text-[#e9edef]">
+                  <h3 className="text-sm font-bold text-gray-900">
                     {threads.find((t) => t.thread_id === activeThreadId)?.student?.name || "Student"}
                   </h3>
-                  <p className="text-[11px] text-[#8696A0] mt-0.5">
+                  <p className="text-[11px] text-gray-500 mt-0.5">
                     Thread: {activeThreadId} • Course: {activeCourseId}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <Badge className="bg-[#202C33] hover:bg-[#202C33] text-[#00A884] border border-[#00A884]/20 rounded-full py-0.5 px-2.5 text-xs font-semibold">
+                <Badge className="bg-[#F4FDF9] hover:bg-[#F4FDF9] text-[#00A884] border border-[#00A884]/20 rounded-full py-0.5 px-2.5 text-xs font-semibold">
                   Course Active
                 </Badge>
               </div>
             </div>
 
             {/* Messages Scroll Area */}
-            <ScrollArea className="flex-1 bg-[#0b141a]/95 p-5 relative overflow-y-auto no-scrollbar">
+            <ScrollArea className="flex-1 bg-gray-50/50 p-5 relative overflow-y-auto no-scrollbar">
               <div className="space-y-3.5">
                 {messages.map((msg) => {
                   const isMe = msg.sender_role === "trainer";
@@ -755,29 +761,26 @@ const Chat = () => {
                     <div
                       key={msg.id}
                       onClick={() => handleBubbleClick(msg.id)}
-                      className={`flex ${isMe ? "justify-end" : "justify-start"} ${
-                        selectMode ? "cursor-pointer" : ""
-                      }`}
+                      className={`flex ${isMe ? "justify-end" : "justify-start"} ${selectMode ? "cursor-pointer" : ""
+                        }`}
                     >
                       <div
-                        className={`group relative max-w-[70%] p-3.5 rounded-2xl border transition-all duration-200 ${
-                          isMe
-                            ? "bg-[#005C4C] border-[#00A884]/20 text-[#e9edef]"
-                            : "bg-[#202C33] border-white/5 text-[#e9edef]"
-                        } ${isSelected ? "border-2 border-dashed border-[#ef4444] opacity-70" : ""} ${
-                          isSystem ? "italic text-[#8696A0] bg-black/10 border-dashed border-white/10" : ""
-                        }`}
+                        className={`group relative max-w-[70%] p-3.5 rounded-2xl border transition-all duration-200 ${isMe
+                            ? "bg-[#00A884] border-transparent text-white"
+                            : "bg-white border-gray-200 text-gray-900"
+                          } ${isSelected ? "border-2 border-dashed border-[#ef4444] opacity-70" : ""} ${isSystem ? "italic text-gray-500 bg-gray-100 border-dashed border-gray-200" : ""
+                          }`}
                       >
                         {/* Reply Indicator if message is replying to another message */}
                         {msg.reply_to_message_id && (
-                          <div className="mb-2 p-2 bg-black/20 rounded-lg border-l-4 border-[#00A884] text-xs text-[#8696A0]">
+                          <div className={`mb-2 p-2 rounded-lg border-l-4 text-xs ${isMe ? "bg-white/20 border-white/50 text-white" : "bg-gray-50 border-[#00A884] text-gray-500"}`}>
                             Replying to message #{msg.reply_to_message_id}
                           </div>
                         )}
 
                         {/* Broadcast indicator */}
                         {msg.is_broadcast && (
-                          <Badge className="bg-[#f59e0b] hover:bg-[#f59e0b] text-black font-extrabold text-[9px] mb-1.5">
+                          <Badge className="bg-[#f59e0b] hover:bg-[#f59e0b] text-white font-extrabold text-[9px] mb-1.5">
                             Broadcast
                           </Badge>
                         )}
@@ -796,16 +799,16 @@ const Chat = () => {
                               className="max-w-full max-h-[220px] rounded-xl object-cover cursor-pointer hover:opacity-90"
                               onClick={() => window.open(apiBase + msg.file_url, "_blank")}
                             />
-                            {msg.content && <p className="text-xs mt-1 text-[#e9edef]">{msg.content}</p>}
+                            {msg.content && <p className={`text-xs mt-1 ${isMe ? "text-white" : "text-gray-900"}`}>{msg.content}</p>}
                           </div>
                         )}
 
                         {/* Document/File message */}
                         {msg.message_type === "file" && msg.file_url && (
-                          <div className="flex items-center justify-between gap-3 bg-black/20 p-2.5 rounded-xl border border-white/5">
+                          <div className={`flex items-center justify-between gap-3 p-2.5 rounded-xl border ${isMe ? "bg-white/20 border-white/30" : "bg-gray-50 border-gray-200"}`}>
                             <div className="min-w-0">
-                              <p className="text-[12.5px] font-bold text-white truncate">{msg.file_name || "Attachment"}</p>
-                              <p className="text-[10px] text-[#8696A0] uppercase mt-0.5">
+                              <p className={`text-[12.5px] font-bold truncate ${isMe ? "text-white" : "text-gray-900"}`}>{msg.file_name || "Attachment"}</p>
+                              <p className={`text-[10px] uppercase mt-0.5 ${isMe ? "text-white/80" : "text-gray-500"}`}>
                                 {msg.file_mime?.split("/")[1] || "file"} • {msg.file_size ? `${(msg.file_size / 1024).toFixed(1)} KB` : ""}
                               </p>
                             </div>
@@ -813,7 +816,7 @@ const Chat = () => {
                               size="icon"
                               variant="ghost"
                               onClick={() => handleDownloadFile(msg.file_url!, msg.file_name || "download")}
-                              className="h-8 w-8 text-[#00A884] hover:text-[#008F72] hover:bg-[#202C33] rounded-lg shrink-0"
+                              className={`h-8 w-8 rounded-lg shrink-0 ${isMe ? "text-white hover:bg-white/20" : "text-[#00A884] hover:bg-gray-200"}`}
                             >
                               <Download className="w-4 h-4" />
                             </Button>
@@ -821,9 +824,9 @@ const Chat = () => {
                         )}
 
                         {/* Metadata line: time, actions on hover */}
-                        <div className="flex justify-between items-center gap-3 mt-1.5 text-[10px] text-[#8696A0]">
+                        <div className={`flex justify-between items-center gap-3 mt-1.5 text-[10px] ${isMe ? "text-white/80" : "text-gray-400"}`}>
                           <span>{new Date(msg.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                          
+
                           {/* Message Actions visible on hover */}
                           {!selectMode && !isSystem && (
                             <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5">
@@ -832,7 +835,7 @@ const Chat = () => {
                                   setReplyingToId(msg.id);
                                   setMessageInput(`Replying to #${msg.id}: `);
                                 }}
-                                className="text-[#8696A0] hover:text-white"
+                                className={`${isMe ? "text-white hover:text-white" : "text-gray-400 hover:text-gray-600"}`}
                                 title="Reply"
                               >
                                 <CornerUpLeft className="w-3.5 h-3.5" />
@@ -840,7 +843,7 @@ const Chat = () => {
                               {isMe && (
                                 <button
                                   onClick={() => handleDeleteEveryone(msg.id)}
-                                  className="text-red-400 hover:text-red-500"
+                                  className="text-red-200 hover:text-red-100"
                                   title="Delete for Everyone"
                                 >
                                   <Trash className="w-3.5 h-3.5" />
@@ -858,22 +861,22 @@ const Chat = () => {
             </ScrollArea>
 
             {/* Composer/Input Bar */}
-            <div className="p-4 bg-[#202C33] border-t border-white/5 flex flex-col gap-2 shrink-0">
+            <div className="p-4 pb-5 md:pb-6 bg-white flex flex-col gap-2 shrink-0">
               {/* Attachment Preview Bar */}
               {pendingFile && (
-                <div className="flex items-center justify-between p-3 bg-black/20 border border-white/5 rounded-2xl">
+                <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-2xl">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <Paperclip className="w-4 h-4 text-[#00A884]" />
                     <div className="min-w-0">
-                      <p className="text-xs font-bold text-white truncate">{pendingFile.name}</p>
-                      <p className="text-[10px] text-[#8696A0] mt-0.5">{(pendingFile.size / 1024 / 1024).toFixed(2)} MB • Ready to send</p>
+                      <p className="text-xs font-bold text-gray-900 truncate">{pendingFile.name}</p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">{(pendingFile.size / 1024 / 1024).toFixed(2)} MB • Ready to send</p>
                     </div>
                   </div>
                   <Button
                     size="icon"
                     variant="ghost"
                     onClick={() => setPendingFile(null)}
-                    className="w-7 h-7 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white"
+                    className="w-7 h-7 hover:bg-gray-200 rounded-lg text-gray-400 hover:text-gray-900"
                   >
                     <X className="w-4 h-4" />
                   </Button>
@@ -882,9 +885,9 @@ const Chat = () => {
 
               {/* Reply Indicator Bar */}
               {replyingToId && (
-                <div className="flex items-center justify-between px-3 py-2 bg-[#0b141a]/60 border border-[#00A884]/20 rounded-xl text-xs">
-                  <span className="text-[#8696A0]">Replying to message #{replyingToId}</span>
-                  <button onClick={() => { setReplyingToId(null); setMessageInput(""); }} className="text-[#8696A0] hover:text-white">
+                <div className="flex items-center justify-between px-3 py-2 bg-blue-50 border border-blue-200 rounded-xl text-xs">
+                  <span className="text-blue-700 font-medium">Replying to message #{replyingToId}</span>
+                  <button onClick={() => { setReplyingToId(null); setMessageInput(""); }} className="text-blue-500 hover:text-blue-700">
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -902,7 +905,7 @@ const Chat = () => {
                   size="icon"
                   variant="ghost"
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-10 h-10 bg-white/5 hover:bg-white/10 rounded-xl text-slate-300 hover:text-white shrink-0"
+                  className="w-10 h-10 bg-gray-50 hover:bg-gray-100 rounded-xl text-gray-500 hover:text-gray-900 shrink-0 border border-gray-200"
                 >
                   <Paperclip className="w-4 h-4" />
                 </Button>
@@ -913,7 +916,7 @@ const Chat = () => {
                   onChange={(e) => setMessageInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSendNormal()}
                   placeholder={pendingFile ? "Press Send to upload attachment..." : "Type a message..."}
-                  className="flex-1 h-10 bg-[#2A3942] border-none text-[#e9edef] placeholder:text-[#8696A0] rounded-xl focus:ring-0"
+                  className="flex-1 h-10 bg-gray-100 border-transparent text-gray-900 placeholder:text-gray-500 rounded-xl focus:ring-1 focus:ring-[#00A884] focus:bg-white focus:border-[#00A884]/30"
                 />
 
                 {/* Send Button */}
@@ -921,16 +924,16 @@ const Chat = () => {
                   onClick={handleSendNormal}
                   className="w-10 h-10 rounded-xl bg-[#00A884] hover:bg-[#008F72] text-white flex items-center justify-center p-0 shrink-0"
                 >
-                  <Send className="w-4.5 h-4.5" />
+                  <Send className="w-4.5 h-4.5 ml-0.5" />
                 </Button>
               </div>
             </div>
           </>
         ) : (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-[#0B141A]">
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-white">
             <Radio className="w-16 h-16 text-[#00A884] opacity-25 animate-pulse mb-4" />
-            <h3 className="text-lg font-bold text-[#e9edef] tracking-wide">No Active Chat Selected</h3>
-            <p className="text-xs text-[#8696A0] max-w-sm mt-1 leading-relaxed">
+            <h3 className="text-lg font-bold text-gray-900 tracking-wide">No Active Chat Selected</h3>
+            <p className="text-xs text-gray-500 max-w-sm mt-1 leading-relaxed">
               Choose a student from the sidebar thread list to connect, view chat logs, send message announcements or files.
             </p>
           </div>
@@ -939,29 +942,29 @@ const Chat = () => {
 
       {/* ================= BROADCAST OVERLAY MODAL ================= */}
       {showBroadcast && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#1E293B] border border-white/10 p-6 rounded-3xl w-full max-w-[460px] space-y-4 shadow-2xl relative">
+        <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-gray-200 p-6 rounded-3xl w-full max-w-[460px] space-y-4 shadow-2xl relative">
             <div>
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                 <Radio className="w-5 h-5 text-[#f59e0b]" />
                 {selectedBroadcastCourseId === -1
                   ? "Broadcast to All Students"
                   : `Broadcast to Course ${selectedBroadcastCourseId || activeCourseId || ""}`}
               </h3>
-              <p className="text-xs text-[#8696A0] mt-0.5">
+              <p className="text-xs text-gray-500 mt-0.5">
                 This announcement will be dispatched to all students enrolled in this course.
               </p>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-[#8696A0] uppercase tracking-wider mb-2">Select Course</label>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Select Course</label>
               <select
                 value={selectedBroadcastCourseId === -1 ? "-1" : selectedBroadcastCourseId || ""}
                 onChange={(e) => {
                   const val = e.target.value;
                   setSelectedBroadcastCourseId(val === "-1" ? -1 : val ? Number(val) : null);
                 }}
-                className="w-full h-10 border border-white/10 rounded-xl px-3 bg-[#0F172A] text-white text-sm outline-none focus:ring-1 focus:ring-[#f59e0b]"
+                className="w-full h-10 border border-gray-200 rounded-xl px-3 bg-gray-50 text-gray-900 text-sm outline-none focus:ring-1 focus:ring-[#f59e0b] focus:bg-white"
               >
                 <option value="">-- Choose Target --</option>
                 <option value="-1">All Students (All Courses)</option>
@@ -974,7 +977,7 @@ const Chat = () => {
             </div>
 
             <textarea
-              className="w-full border border-white/10 rounded-2xl p-3 h-28 bg-[#0F172A] text-white outline-none focus:ring-1 focus:ring-[#f59e0b] text-sm resize-none"
+              className="w-full border border-gray-200 rounded-2xl p-3 h-28 bg-gray-50 text-gray-900 outline-none focus:ring-1 focus:ring-[#f59e0b] focus:bg-white text-sm resize-none placeholder:text-gray-400"
               placeholder="Type your course announcement here..."
               value={broadcastText}
               onChange={(e) => setBroadcastText(e.target.value)}
@@ -989,19 +992,19 @@ const Chat = () => {
               />
               <Button
                 onClick={() => broadcastFileInputRef.current?.click()}
-                className="w-full h-10 border border-white/10 bg-[#0F172A] hover:bg-black/40 text-slate-300 hover:text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2"
+                className="w-full h-10 border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-700 hover:text-gray-900 rounded-xl text-xs font-semibold flex items-center justify-center gap-2"
               >
                 <Paperclip className="w-3.5 h-3.5 text-[#f59e0b]" />
                 {broadcastPendingFile ? "Change File / Image" : "Attach File or Image"}
               </Button>
 
               {broadcastPendingFile && (
-                <div className="bg-[#0F172A] border border-white/5 p-3 rounded-2xl flex items-center justify-between">
+                <div className="bg-gray-50 border border-gray-200 p-3 rounded-2xl flex items-center justify-between">
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-white truncate">{broadcastPendingFile.name}</p>
-                    <p className="text-[10px] text-[#8696A0] mt-0.5">{(broadcastPendingFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                    <p className="text-xs font-bold text-gray-900 truncate">{broadcastPendingFile.name}</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">{(broadcastPendingFile.size / 1024 / 1024).toFixed(2)} MB</p>
                     {broadcastPendingFile.type.startsWith("image/") && (
-                      <div className="mt-2 max-h-[140px] overflow-hidden rounded-lg">
+                      <div className="mt-2 max-h-[140px] overflow-hidden rounded-lg border border-gray-200">
                         <img
                           src={URL.createObjectURL(broadcastPendingFile)}
                           alt="preview"
@@ -1014,7 +1017,7 @@ const Chat = () => {
                     size="icon"
                     variant="ghost"
                     onClick={() => setBroadcastPendingFile(null)}
-                    className="w-7 h-7 hover:bg-white/5 rounded-lg text-slate-400 hover:text-white"
+                    className="w-7 h-7 hover:bg-gray-200 rounded-lg text-gray-400 hover:text-gray-900"
                   >
                     <X className="w-4 h-4" />
                   </Button>
@@ -1029,14 +1032,14 @@ const Chat = () => {
                   setBroadcastPendingFile(null);
                   setShowBroadcast(false);
                 }}
-                className="h-10 px-5 rounded-xl text-xs font-bold border border-white/5 hover:bg-white/5"
+                className="h-10 px-5 rounded-xl text-xs font-bold border border-gray-200 hover:bg-gray-100 text-gray-700"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleSendBroadcast}
                 disabled={broadcastLoading}
-                className="h-10 px-6 rounded-xl text-xs font-bold bg-[#f59e0b] hover:bg-[#d97706] text-white flex items-center justify-center gap-2"
+                className="h-10 px-6 rounded-xl text-xs font-bold bg-[#f59e0b] hover:bg-[#d97706] text-white flex items-center justify-center gap-2 shadow-sm"
               >
                 {broadcastLoading ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

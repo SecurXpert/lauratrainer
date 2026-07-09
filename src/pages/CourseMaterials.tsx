@@ -1,32 +1,15 @@
 import { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Upload, Loader2, Plus, Edit, Trash2, Eye, FileText, Video, Download, Link, X, Search, ChevronDown, Calendar } from "lucide-react";
 import { toast } from "sonner";
+import { API_BASE_URL } from "./services/api/api";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "https://lauratek.in:8000";
-
-interface Material {
-  id: number;
-  title: string;
-  module_id?: string | null;
-  file_url?: string;
-  uploaded_by?: string;
-  created_at?: string;
-  course_title?: string;
-  course_id?: number | string;
-}
-
-interface MaterialFormData {
-  courseId: string;
-  title: string;
-  moduleId: string;
-  uploadedBy: string;
-  file: File | null;
-}
+import { Material, MaterialFormData } from "../components/CourseMaterials/CourseMaterialsTypes";
+import CourseMaterialsHeader from "../components/CourseMaterials/CourseMaterialsHeader";
+import CourseMaterialsMetrics from "../components/CourseMaterials/CourseMaterialsMetrics";
+import CourseMaterialsFilter from "../components/CourseMaterials/CourseMaterialsFilter";
+import CourseMaterialsGrid from "../components/CourseMaterials/CourseMaterialsGrid";
+import CourseMaterialsPagination from "../components/CourseMaterials/CourseMaterialsPagination";
+import CourseMaterialsFormModal from "../components/CourseMaterials/CourseMaterialsFormModal";
 
 export default function CourseMaterials() {
   const navigate = useNavigate();
@@ -34,9 +17,7 @@ export default function CourseMaterials() {
   const [loadingMaterials, setLoadingMaterials] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [editingMaterialId, setEditingMaterialId] = useState<number | null>(
-    null,
-  );
+  const [editingMaterialId, setEditingMaterialId] = useState<number | null>(null);
   const [loadingAction, setLoadingAction] = useState(false);
   const [fileName, setFileName] = useState<string>("No file chosen");
   const [totalMaterialCount, setTotalMaterialCount] = useState<number>(0);
@@ -619,368 +600,66 @@ export default function CourseMaterials() {
   return (
     <div className="min-h-screen bg-gradient-to-b p-2 md:p-3 from-slate-50 to-slate-100">
       <div className="w-full">
-        {/* HEADER */}
-        <div className="sticky top-0 z-50 bg-slate-50/95 backdrop-blur-md py-4 -mt-2 md:-mt-3 mb-5 sm:mb-7 border-b border-slate-200/80 px-4 -mx-2 md:-mx-3 md:px-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-[30px] font-bold">Course Materials</h1>
-            <p className="text-[#64748B]">
-              Manage learning materials and resources
-            </p>
-          </div>
-          <Button
-            onClick={() => {
-              resetForm();
-              setShowForm(true);
-            }}
-            className="gap-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-[0_10px_22px_rgba(126,58,242,0.35)]"
-            disabled={loadingAction}
-          >
-            <Plus className="h-5 w-5" />
-            Add Material
-          </Button>
-        </div>
+        <CourseMaterialsHeader 
+          loadingAction={loadingAction}
+          onAddClick={() => {
+            resetForm();
+            setShowForm(true);
+          }}
+        />
 
-        {/* METRICS CARDS */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white p-6 rounded-[20px] shadow-md border border-gray-200 flex flex-col min-h-[120px] justify-center">
-            <p className="text-[13px] text-gray-500 font-medium mb-1">Total Courses</p>
-            <h3 className="text-3xl font-bold text-[#0F172A]">{selectedCourseId ? 1 : totalMaterialCount}</h3>
-          </div>
-          <div className="bg-white p-6 rounded-[20px] shadow-md border border-gray-200 flex flex-col min-h-[120px] justify-center">
-            <p className="text-[13px] text-gray-500 font-medium mb-1">Documents</p>
-            <h3 className="text-3xl font-bold text-[#2563EB]">{selectedCourseId ? materials.length : totalDocumentsCount}</h3>
-          </div>
-        </div>
+        <CourseMaterialsMetrics 
+          selectedCourseId={selectedCourseId}
+          totalMaterialCount={totalMaterialCount}
+          materialsLength={materials.length}
+          totalDocumentsCount={totalDocumentsCount}
+        />
 
-        {/* MATERIAL GRID */}
         <div className="space-y-6 mb-10">
-          {/* Filters & Search Bar */}
-          <div className="bg-white rounded-[22px] p-4 sm:p-5 shadow-sm border border-slate-100/80">
-            <div className="flex flex-col sm:flex-row gap-4 items-center">
-              {/* Search */}
-              <div className="relative w-full sm:flex-1">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Search materials..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl bg-slate-50/50 focus:outline-none focus:ring-0 focus:border-slate-200 focus:bg-white transition-colors text-sm font-medium placeholder:text-slate-400"
-                />
-              </div>
+          <CourseMaterialsFilter 
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            dateFilter={dateFilter}
+            setDateFilter={setDateFilter}
+            selectedCourseId={selectedCourseId}
+            setSelectedCourseId={setSelectedCourseId}
+            setFormCourseId={(id) => setForm(prev => ({ ...prev, courseId: id }))}
+            courses={courses}
+          />
 
-              {/* Date Filter */}
-              <div className="relative w-full sm:w-48">
-                <input
-                  type="date"
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                  className="w-full pl-4 pr-10 py-3 border border-slate-200 rounded-xl bg-slate-50/50 focus:outline-none focus:ring-0 focus:border-slate-200 focus:bg-white transition-colors text-sm font-medium text-slate-700 appearance-none cursor-pointer"
-                />
-                <Calendar className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
-              </div>
+          <CourseMaterialsGrid 
+            loadingMaterials={loadingMaterials}
+            materialsLength={materials.length}
+            selectedCourseId={selectedCourseId}
+            paginatedMaterials={paginatedMaterials}
+            courses={courses}
+            loadingAction={loadingAction}
+            handleView={handleView}
+            handleEdit={handleEdit}
+            handleDownload={handleDownload}
+            handleDelete={handleDelete}
+          />
 
-              {/* Course Selector */}
-              <div className="relative w-full sm:w-64">
-                <select
-                  value={selectedCourseId}
-                  onChange={(e) => {
-                    setSelectedCourseId(e.target.value);
-                    setForm(prev => ({ ...prev, courseId: e.target.value }));
-                  }}
-                  className="w-full pl-4 pr-10 py-3 border border-slate-200 rounded-xl bg-slate-50/50 focus:outline-none focus:ring-0 focus:border-slate-200 focus:bg-white transition-colors text-sm font-medium text-slate-700 appearance-none cursor-pointer"
-                >
-                  <option value="">All Courses</option>
-                  {courses.map((course) => {
-                    const title = course.title || `Course #${course.id}`;
-                    const displayTitle = title.length > 25 ? title.substring(0, 25) + "..." : title;
-                    return (
-                      <option key={course.id} value={course.id}>
-                        {displayTitle} (ID: {course.id})
-                      </option>
-                    );
-                  })}
-                </select>
-                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
-              </div>
-            </div>
-          </div>
-
-          {loadingMaterials ? (
-            <div className="p-20 text-center text-slate-400 bg-white rounded-2xl border">
-              <Loader2 className="h-10 w-10 animate-spin mx-auto mb-4 text-blue-500" />
-              <p className="font-medium">Loading materials...</p>
-            </div>
-          ) : materials.length === 0 ? (
-            <div className="p-20 text-center text-slate-400 bg-white rounded-2xl border">
-              <FileText className="h-12 w-12 mx-auto mb-4 opacity-20" />
-              <p className="font-medium text-slate-500">
-                {selectedCourseId ? "No materials uploaded yet for this course." : "No materials available across any course."}
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {paginatedMaterials.map((mat) => {
-                  const isVideo = mat.file_url?.toLowerCase().endsWith('.mp4');
-                  const courseTitle = mat.course_title || courses.find(c => String(c.id) === String(selectedCourseId))?.title || "Unknown Course";
-
-                  return (
-                    <div
-                      key={mat.id}
-                      className="bg-white rounded-[24px] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 overflow-hidden group"
-                    >
-                      <div className="p-6">
-                        <div className="flex gap-4">
-                          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 ${isVideo ? 'bg-purple-50 text-purple-600' : 'bg-blue-50 text-blue-600'}`}>
-                            {isVideo ? <Video className="w-7 h-7" /> : <FileText className="w-7 h-7" />}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-slate-900 text-lg leading-snug truncate group-hover:text-blue-600 transition-colors">
-                              {mat.title}
-                            </h3>
-                            <p className="text-slate-500 text-[14px] mt-1">{courseTitle}</p>
-                            <div className="flex items-center gap-3 mt-3 text-[13px] text-slate-500 font-medium">
-                              <span>{mat.created_at ? new Date(mat.created_at).toISOString().split('T')[0] : '2026-03-20'}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="px-6 py-4 bg-white border-t border-slate-200/70 flex items-center gap-3">
-                        <button
-                          className="flex-1 flex items-center justify-center gap-2 h-10 bg-[#F8FAFC] hover:bg-[#F1F5F9] text-[#334155] rounded-2xl text-[14px] font-semibold transition-all border border-slate-200/40 shadow-sm"
-                          onClick={() => mat.file_url && handleView(mat.file_url)}
-                        >
-                          <Eye className="w-[18px] h-[18px] text-[#334155]" />
-                          View
-                        </button>
-                        <button
-                          className="flex-1 flex items-center justify-center gap-2 h-10 bg-[#EFF6FF] hover:bg-[#DBEAFE] text-[#2563EB] rounded-2xl text-[14px] font-semibold transition-all border border-blue-100/40 shadow-sm"
-                          onClick={() => handleEdit(mat)}
-                        >
-                          <Edit className="w-[18px] h-[18px] text-[#2563EB]" />
-                          Edit
-                        </button>
-                        <button
-                          className="w-12 h-10 flex items-center justify-center rounded-2xl bg-[#F8FAFC] hover:bg-[#F1F5F9] text-[#334155] transition-all border border-slate-200/40 shadow-sm shrink-0"
-                          onClick={() => mat.file_url && handleDownload(mat.file_url, mat.title)}
-                          title="Download"
-                        >
-                          <Download className="w-[18px] h-[18px] text-[#334155]" />
-                        </button>
-                        <button
-                          className="w-12 h-10 flex items-center justify-center rounded-2xl bg-[#FEF2F2] hover:bg-[#FEE2E2] text-[#EF4444] transition-all border border-red-100/40 shadow-sm shrink-0"
-                          onClick={() => handleDelete(mat.id)}
-                          disabled={loadingAction}
-                          title="Delete"
-                        >
-                          <Trash2 className="w-[18px] h-[18px] text-[#EF4444]" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Pagination controls */}
-              {totalPages > 1 && (
-                <div className="flex justify-center mt-8 pt-6 border-t border-slate-200/60">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                      className="px-4 py-2 bg-[#F8FAFC] hover:bg-[#F1F5F9] disabled:opacity-50 disabled:hover:bg-[#F8FAFC] text-slate-700 rounded-xl text-[13px] font-semibold border border-slate-200/40 shadow-sm transition-all"
-                    >
-                      Previous
-                    </button>
-                    <div className="flex items-center gap-1.5">
-                      {Array.from({ length: totalPages }).map((_, i) => (
-                        <button
-                          key={i}
-                          onClick={() => setCurrentPage(i + 1)}
-                          className={`w-9 h-9 rounded-xl text-[13px] font-bold transition-all ${currentPage === i + 1
-                            ? 'bg-[#EFF6FF] text-[#2563EB] border border-blue-100/40 shadow-sm'
-                            : 'bg-[#F8FAFC] hover:bg-[#F1F5F9] text-slate-600 border border-slate-200/40 shadow-sm'
-                            }`}
-                        >
-                          {i + 1}
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      className="px-4 py-2 bg-[#F8FAFC] hover:bg-[#F1F5F9] disabled:opacity-50 disabled:hover:bg-[#F8FAFC] text-slate-700 rounded-xl text-[13px] font-semibold border border-slate-200/40 shadow-sm transition-all"
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
+          <CourseMaterialsPagination 
+            totalPages={totalPages}
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+          />
         </div>
 
-        {/* Upload / Edit Form Modal */}
-        {/* Upload / Edit Form Modal */}
-        {showForm && (
-          <div className="fixed inset-0 z-[100] overflow-y-auto overscroll-contain bg-black/50">
-            <div className="flex min-h-full items-end justify-center p-4 pb-10 sm:items-center sm:p-4 sm:py-8">
-              <div
-                className="flex min-h-0 w-full max-w-[400px] flex-col overflow-hidden rounded-xl bg-white shadow-2xl max-h-[calc(100dvh-4rem)] sm:max-h-[min(90dvh,44rem)]"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="material-modal-title"
-              >
-                {/* Header */}
-                <div className="flex shrink-0 items-center justify-between gap-3 px-4 py-4 sm:px-6" style={{ background: 'linear-gradient(135deg, #F0F6FF 0%, #FAF5FF 100%)' }}>
-                  <h2 id="material-modal-title" className="min-w-0 text-base font-semibold text-blue-600 sm:text-lg">
-                    {isEditing ? "Edit Material" : "Add Material"}
-                  </h2>
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    disabled={loadingAction}
-                    className="shrink-0 text-gray-600 hover:text-gray-900 transition-colors"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Form Content */}
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 no-scrollbar">
-                  <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Course Select Dropdown */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Course
-                      </label>
-                      <select
-                        id="courseId"
-                        name="courseId"
-                        value={form.courseId}
-                        onChange={(e) => setForm((prev) => ({ ...prev, courseId: e.target.value }))}
-                        required
-                        disabled={loadingAction}
-                        className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 focus:border-gray-200 text-sm bg-white"
-                      >
-                        <option value="">Select Course</option>
-                        {courses.map((course) => {
-                          const title = course.title || `Course #${course.id}`;
-                          const displayTitle = title.length > 25 ? title.substring(0, 25) + "..." : title;
-                          return (
-                            <option key={course.id} value={course.id}>
-                              {displayTitle} (ID: {course.id})
-                            </option>
-                          );
-                        })}
-                      </select>
-                    </div>
-
-                    {/* Title */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Title
-                      </label>
-                      <input
-                        type="text"
-                        id="title"
-                        name="title"
-                        placeholder="Enter Title"
-                        value={form.title}
-                        onChange={(e) => {
-                          const val = e.target.value.slice(0, 25);
-                          setForm((prev) => ({ ...prev, title: val }));
-                        }}
-                        maxLength={25}
-                        required
-                        disabled={loadingAction}
-                        className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 focus:border-gray-200 text-sm"
-                      />
-                    </div>
-
-                    {/* Module ID */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Module ID
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          id="moduleId"
-                          name="moduleId"
-                          placeholder="e.g., 37"
-                          value={form.moduleId}
-                          onChange={(e) => {
-                            const val = e.target.value.slice(0, 10);
-                            setForm((prev) => ({ ...prev, moduleId: val }));
-                          }}
-                          maxLength={10}
-                          required
-                          disabled={loadingAction}
-                          className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-0 focus:border-gray-200 text-sm"
-                        />
-                        {loadingModules && (
-                          <div className="absolute right-3 top-3">
-                            <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-
-                    {/* Upload Area */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        File
-                      </label>
-                      <div
-                        onClick={() => !loadingAction && document.getElementById("file")?.click()}
-                        className="border-2 border-dashed border-gray-300 rounded-lg p-5 flex flex-col items-center justify-center cursor-pointer hover:border-blue-400 hover:bg-gray-50 transition-colors"
-                      >
-                        <input
-                          id="file"
-                          type="file"
-                          className="hidden"
-                          onChange={handleFileChange}
-                          disabled={loadingAction}
-                          accept=".pdf,.doc,.docx,.ppt,.pptx,.zip,.txt,.md,image/*"
-                        />
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center mb-1">
-                          <Plus className="w-5 h-5 text-blue-500" />
-                        </div>
-                        <p className="text-[13px] text-gray-600 font-medium text-center">
-                          Drag & drop file or click to upload
-                        </p>
-                        <p className="text-[11px] text-gray-400 text-center mt-1">
-                          {fileName !== "No file chosen" ? (fileName.length > 40 ? fileName.substring(0, 37) + "..." : fileName) : "Accepts: PDF, DOC, ZIP, Images"}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Submit Button */}
-                    <div className="pt-2">
-                      <button
-                        type="submit"
-                        disabled={loadingAction}
-                        className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium rounded-lg shadow-sm transition-colors disabled:opacity-50 flex items-center justify-center text-sm"
-                      >
-                        {loadingAction ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            {isEditing ? "Updating..." : "Uploading..."}
-                          </>
-                        ) : (
-                          "Submit"
-                        )}
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        <CourseMaterialsFormModal 
+          showForm={showForm}
+          isEditing={isEditing}
+          loadingAction={loadingAction}
+          loadingModules={loadingModules}
+          form={form}
+          setForm={setForm}
+          fileName={fileName}
+          courses={courses}
+          resetForm={resetForm}
+          handleSubmit={handleSubmit}
+          handleFileChange={handleFileChange}
+        />
       </div>
     </div>
   );

@@ -138,26 +138,26 @@ export default function QuestionBank() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col w-full">
       {/* Sticky Header */}
-      <div className="sticky top-0 z-50 bg-gray-50 px-2 md:px-3 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-transparent">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Question Bank</h1>
-          <p className="text-sm sm:text-base text-gray-500">Manage and preview your questions</p>
+      <div className="sticky top-0 z-20 bg-gray-50 px-2 md:px-3 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-transparent">
+        <div className="min-w-0">
+          <h1 className="text-[24px] sm:text-[28px] lg:text-3xl font-bold text-gray-900">Question Bank</h1>
+          <p className="text-sm lg:text-base text-gray-500">Manage and preview your questions</p>
         </div>
 
-        <div className="flex flex-col sm:flex-row w-full sm:w-auto gap-3">
+        <div className="grid grid-cols-2 lg:flex gap-3">
           <Button
             variant="outline"
             onClick={handleBulkUpload}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 h-[40px] px-7 rounded-[10px] border-2 border-[#2563eb] bg-white text-[#2563eb] hover:bg-[#2563eb] hover:text-white active:bg-[#1d4ed8] transition-all duration-200 shadow-none font-medium text-[14px] sm:text-[16px]" >
-            <Upload className="w-5 h-5" />
-            <span>Bulk Upload CSV</span>
+            className="flex items-center justify-center gap-2 h-[40px] px-4 lg:px-7 rounded-[10px] border-2 border-[#2563eb] bg-white text-[#2563eb] hover:bg-[#2563eb] hover:text-white active:bg-[#1d4ed8] transition-all duration-200 shadow-none font-medium text-[13px] sm:text-[14px] lg:text-[16px]" >
+            <Upload className="w-4 h-4 lg:w-5 lg:h-5 shrink-0" />
+            <span className="truncate">Bulk Upload CSV</span>
           </Button>
           <Button
             onClick={handleAddQuestionClick}
-            className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 flex items-center justify-center gap-2 shadow-[0_10px_22px_rgba(126,58,242,0.35)] text-[14px] sm:text-[16px] h-[40px]"
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 flex items-center justify-center gap-2 shadow-[0_10px_22px_rgba(126,58,242,0.35)] text-[13px] sm:text-[14px] lg:text-[16px] h-[40px]"
           >
-            <Plus className="w-4 h-4" />
-            Add Question
+            <Plus className="w-4 h-4 shrink-0" />
+            <span className="truncate">Add Question</span>
           </Button>
         </div>
       </div>

@@ -1,8 +1,7 @@
-const BASE_URL =
-  (typeof import.meta !== 'undefined' &&
-    import.meta.env &&
-    import.meta.env.VITE_API_BASE_URL) ||
-  'https://lauratek.in:8000';
+import { API_BASE_URL } from "@/pages/services/api/api";
+
+
+const BASE_URL = API_BASE_URL;
 
 /* ======================
    HELPERS

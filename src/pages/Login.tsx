@@ -1,12 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { Eye, EyeOff, Download } from 'lucide-react';
-
 import logo from '@/assets/lauratek.png';
 
 import {
@@ -18,6 +13,13 @@ import {
   reenrollStart,
   reenrollQr,
 } from '@/api/authApi';
+
+import LoginLeftPanel from '../components/Login/LoginLeftPanel';
+import LoginForm from '../components/Login/LoginForm';
+import LoginMfaForm from '../components/Login/LoginMfaForm';
+import LoginEnrollForm from '../components/Login/LoginEnrollForm';
+import LoginBackupCodes from '../components/Login/LoginBackupCodes';
+import LoginFinalMfaForm from '../components/Login/LoginFinalMfaForm';
 
 type Step = 'login' | 'mfa' | 'enroll' | 'backup' | 'finalMfa';
 
@@ -270,35 +272,15 @@ const Login = () => {
 
   return (
     <div className="min-h-screen w-full bg-white flex items-center justify-center">
-      <div className="w-full min-h-screen bg-white grid grid-cols-1 lg:grid-cols-[45%_55%]">
+      <div className="w-full min-h-screen bg-white grid grid-cols-1 lg:landscape:grid-cols-[45%_55%]">
 
         {/* Left Image Section */}
-        <div className="hidden lg:flex flex-col h-screen sticky top-0">
-          <div className="h-[55%] w-full">
-            <img
-              src="/login.png"
-              alt="Login illustration"
-              className="w-full h-full object-cover"
-            />
-          </div>
-
-          <div className="h-[45%] bg-gradient-to-br from-[#006fe8] via-[#3158f4] to-[#7b2ff7] flex items-center justify-center px-[58px]">
-            <div className="relative w-full max-w-[470px] bg-[#1c2f8f]/35 backdrop-blur-[1px] px-8 py-8 border-l-[7px] border-white">
-              <h2 className="text-white text-[28px] font-semibold leading-tight mb-3">
-                Welcome To Lauratek
-              </h2>
-              <p className="text-white text-[18px] leading-[1.5] font-medium">
-                A powerful platform designed to streamline learning, assessments,
-                and student success with a modern, centralized experience.
-              </p>
-            </div>
-          </div>
-        </div>
+        <LoginLeftPanel />
 
         {/* Right Login Section */}
-        <div className="relative min-h-screen bg-white flex flex-col justify-center px-6 sm:px-10 lg:px-16 xl:px-20 py-12 lg:py-0">
+        <div className="relative min-h-screen bg-white flex flex-col justify-start pt-12 sm:pt-16 md:pt-24 lg:landscape:justify-center lg:landscape:pt-0 px-4 sm:px-8 md:px-8 lg:landscape:px-16 xl:px-20 py-10 md:py-12 lg:landscape:py-0">
           <div className="w-full max-w-[610px] mx-auto">
-            <div className="mb-10 lg:mb-[40px]">
+            <div className="mb-6 md:mb-8 lg:mb-[40px]">
               <img
                 src={logo}
                 alt="Lauratek Logo"
@@ -307,220 +289,57 @@ const Login = () => {
             </div>
 
             {step === 'login' && (
-              <>
-                <div className="mb-6">
-                  <h1 className="text-[28px] leading-tight font-semibold text-[#1f2937] mb-3">
-                    Login
-                  </h1>
-                  <p className="text-[18px] leading-[1.35] text-[#6f6f6f] font-normal">
-                    Enter your credentials to login your account
-                  </p>
-                </div>
-
-                <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
-                  <div className="space-y-4">
-                    <Label className="text-[16px] font-semibold text-black">
-                      Email <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Enter your email"
-                      autoComplete="off"
-                      className="h-[61px] rounded-[13px] border-[#d3d3d3] px-5 text-[16px] shadow-none focus-visible:ring-1 focus-visible:ring-[#2563eb]"
-                    />
-                  </div>
-
-                  <div className="space-y-4">
-                    <Label className="text-[16px] font-semibold text-black">
-                      Password<span className="text-red-500">*</span>
-                    </Label>
-                    <div className="relative">
-                      <Input
-                        type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Enter your password"
-                        autoComplete="new-password"
-                        className="h-[61px] rounded-[13px] border-[#d3d3d3] pl-5 pr-12 text-[16px] shadow-none focus-visible:ring-1 focus-visible:ring-[#2563eb] w-full"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none flex items-center justify-center p-1 rounded-md transition-colors"
-                        title={showPassword ? "Hide password" : "Show password"}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="w-5 h-5" />
-                        ) : (
-                          <Eye className="w-5 h-5" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  <Button
-                    className="w-full h-[54px] rounded-[11px] bg-gradient-to-r from-[#0d7df2] to-[#7430ec] text-white text-[16px] font-semibold shadow-[0_14px_28px_rgba(37,99,235,0.28)] hover:opacity-95"
-                    disabled={loading}
-                  >
-                    {loading ? 'Signing in...' : 'Login'}
-                  </Button>
-                </form>
-              </>
+              <LoginForm 
+                email={email}
+                setEmail={setEmail}
+                password={password}
+                setPassword={setPassword}
+                showPassword={showPassword}
+                setShowPassword={setShowPassword}
+                loading={loading}
+                handleSubmit={handleSubmit}
+              />
             )}
 
             {step === 'mfa' && (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleMfaVerify();
-                }}
-                className="space-y-4"
-              >
-                {!useBackup ? (
-                  <Input
-                    placeholder="6-digit code"
-                    value={otp}
-                    onChange={(e) =>
-                      setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
-                    }
-                    className="h-[61px] rounded-[13px]"
-                  />
-                ) : (
-                  <Input
-                    placeholder="Backup code"
-                    value={backupCode}
-                    onChange={(e) => setBackupCode(e.target.value)}
-                    className="h-[61px] rounded-[13px]"
-                  />
-                )}
-
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full h-[54px] rounded-[11px] bg-gradient-to-r from-[#0d7df2] to-[#7430ec]"
-                >
-                  Verify
-                </Button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setUseBackup(!useBackup);
-                    setOtp('');
-                    setBackupCode('');
-                  }}
-                  className="text-sm text-[#2563eb] block"
-                >
-                  {useBackup ? 'Use authenticator app' : 'Use backup code'}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={startEnrollment}
-                  className="text-sm text-[#2563eb] block"
-                >
-                  First time? Set up 2FA
-                </button>
-              </form>
+              <LoginMfaForm 
+                useBackup={useBackup}
+                setUseBackup={setUseBackup}
+                otp={otp}
+                setOtp={setOtp}
+                backupCode={backupCode}
+                setBackupCode={setBackupCode}
+                loading={loading}
+                handleMfaVerify={handleMfaVerify}
+                startEnrollment={startEnrollment}
+              />
             )}
 
             {step === 'enroll' && (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleEnrollVerify();
-                }}
-                className="space-y-4 text-center"
-              >
-                {qrImage && (
-                  <img
-                    src={qrImage}
-                    className="mx-auto w-48"
-                    alt="Scan this QR with your authenticator app"
-                  />
-                )}
-                <Input
-                  placeholder="6-digit code"
-                  value={otp}
-                  onChange={(e) =>
-                    setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
-                  }
-                  className="h-[61px] rounded-[13px]"
-                />
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full h-[54px] rounded-[11px] bg-gradient-to-r from-[#0d7df2] to-[#7430ec]"
-                >
-                  Verify Setup
-                </Button>
-              </form>
+              <LoginEnrollForm 
+                qrImage={qrImage}
+                otp={otp}
+                setOtp={setOtp}
+                loading={loading}
+                handleEnrollVerify={handleEnrollVerify}
+              />
             )}
 
             {step === 'backup' && (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setStep('finalMfa');
-                }}
-                className="space-y-4"
-              >
-                <h3 className="text-lg font-medium">Backup Codes</h3>
-                <p className="text-sm text-muted-foreground">
-                  Save these codes in a safe place. You can use them if you lose
-                  access to your authenticator app.
-                </p>
-                <ul className="list-disc pl-4 space-y-1">
-                  {backupCodes.map((code, i) => (
-                    <li key={i} className="text-sm">
-                      {code}
-                    </li>
-                  ))}
-                </ul>
-                <div className="flex flex-col sm:flex-row gap-3 pt-2">
-                  <Button
-                    type="button"
-                    onClick={handleDownloadBackupCodes}
-                    className="flex-1 h-[54px] rounded-[11px] border border-[#d3d3d3] bg-white text-gray-700 hover:bg-gray-50 hover:text-gray-900 font-semibold flex items-center justify-center gap-2 shadow-none"
-                  >
-                    <Download className="w-5 h-5 text-gray-500" />
-                    Download Codes
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="flex-1 h-[54px] rounded-[11px] bg-gradient-to-r from-[#0d7df2] to-[#7430ec] text-white font-semibold shadow-none"
-                  >
-                    I have saved them
-                  </Button>
-                </div>
-              </form>
+              <LoginBackupCodes 
+                backupCodes={backupCodes}
+                handleDownloadBackupCodes={handleDownloadBackupCodes}
+                setStep={setStep}
+              />
             )}
 
             {step === 'finalMfa' && (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleFinalLogin();
-                }}
-                className="space-y-4"
-              >
-                <Input
-                  placeholder="6-digit code"
-                  value={otp}
-                  onChange={(e) =>
-                    setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
-                  }
-                  className="h-[61px] rounded-[13px]"
-                />
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full h-[54px] rounded-[11px] bg-gradient-to-r from-[#0d7df2] to-[#7430ec]"
-                >
-                  Complete Login
-                </Button>
-              </form>
+              <LoginFinalMfaForm 
+                otp={otp}
+                setOtp={setOtp}
+                loading={loading}
+                handleFinalLogin={handleFinalLogin}
+              />
             )}
           </div>
         </div>

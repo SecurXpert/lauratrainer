@@ -1,7 +1,9 @@
 
 import axios from 'axios';
+import { API_BASE_URL } from '@/pages/services/api/api';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'https://lauratek.in:8000';
+
+const API_BASE = API_BASE_URL;
 
 const axiosInstance = axios.create({
   baseURL: API_BASE,

@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { API_BASE_URL } from "./services/api/api";
 
-const BASE_API = "https://lauratek.in:8000";
+const BASE_API = API_BASE_URL;
 
 const CurriculumForm = () => {
   const navigate = useNavigate();
@@ -33,7 +34,7 @@ const CurriculumForm = () => {
       const fetchCurriculum = async () => {
         try {
           const token = localStorage.getItem("access_token");
-          
+
           // Fetch curriculum lists for all courses in parallel
           const curriculumPromises = courses.map(async (course) => {
             try {
@@ -51,7 +52,7 @@ const CurriculumForm = () => {
           });
 
           const results = await Promise.all(curriculumPromises);
-          
+
           // Find the module that matches the target module ID
           let foundModule = null;
           let foundCourseId = "";
@@ -87,7 +88,7 @@ const CurriculumForm = () => {
   useEffect(() => {
     const fetchCourses = async () => {
       const token = localStorage.getItem("access_token");
-      const res = await fetch("https://lauratek.in:8000/trainer/courses", {
+      const res = await fetch(`${BASE_API}/trainer/courses`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -300,13 +301,9 @@ const CurriculumForm = () => {
                   <option value="false">Inactive</option>
                 </select>
               </div>
-
-             
-
-            </div>
+              </div>
           </div>
-
-        </form>
+          </form>
       </div>
     </div>
   );

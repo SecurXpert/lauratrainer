@@ -1,39 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Trash2, Code2, X, Edit, List, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface TestCase {
-  testcase: number;
-  input: string;
-  output: string;
-}
+import { Question, QuestionForm } from '../components/CodingQuestions/CodingQuestionsTypes';
+import CodingQuestionsHeader from '../components/CodingQuestions/CodingQuestionsHeader';
+import CodingQuestionsList from '../components/CodingQuestions/CodingQuestionsList';
+import CodingQuestionForm from '../components/CodingQuestions/CodingQuestionForm';
 
-interface Question {
-  question_id: number;
-  title: string;
-  question: string;
-  description: string;
-  sample_inputs: string;
-  sample_outputs: string;
-  test_cases: TestCase[];
-  suggestion: string[];
-}
-
-interface QuestionForm {
-  title: string;
-  question: string;
-  description: string;
-  sample_inputs: string;
-  sample_outputs: string;
-  test_cases: { input: string; output: string }[];
-  suggestion: string[];
-}
+import { API_BASE_URL } from "./services/api/api";
 
 const initialForm: QuestionForm = {
   title: '',
@@ -45,7 +19,7 @@ const initialForm: QuestionForm = {
   suggestion: [''],
 };
 
-const API_BASE = 'https://lauratek.in:8000/compiler-questions';
+const API_BASE = `${API_BASE_URL}/compiler-questions`;
 
 const CodingQuestions = () => {
   const navigate = useNavigate();
@@ -344,247 +318,35 @@ const CodingQuestions = () => {
 
   return (
     <div className="container w-full px-4 pt-0 pb-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold flex items-center gap-3">
-          <Code2 className="h-8 w-8 text-primary" />
-          Coding Questions
-        </h1>
-        <div className="flex gap-3">
-          <Button onClick={triggerFileInput} variant="secondary" className="gap-2">
-            <Upload size={18} /> Upload CSV
-          </Button>
-          <Button onClick={() => setIsFormOpen(true)} className="gap-2">
-            <Plus size={18} /> Add New Question
-          </Button>
-        </div>
-      </div>
-
-      <input
-        type="file"
-        ref={fileInputRef}
-        accept=".csv"
-        onChange={handleCsvUpload}
-        className="hidden"
+      <CodingQuestionsHeader
+        triggerFileInput={triggerFileInput}
+        setIsFormOpen={setIsFormOpen}
+        fileInputRef={fileInputRef}
+        handleCsvUpload={handleCsvUpload}
       />
 
-      <Card className="mb-10">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <List size={20} /> Available Questions
-          </CardTitle>
-          <CardDescription>Manage existing coding problems</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {fetching ? (
-            <p className="text-center py-8 text-muted-foreground">Loading questions...</p>
-          ) : questions.length === 0 ? (
-            <p className="text-center py-12 text-muted-foreground">
-              No questions found. Add your first question!
-            </p>
-          ) : (
-            <div className="space-y-4">
-              {questions.map((q) => (
-                <div
-                  key={q.question_id}
-                  className="flex justify-between items-center p-4 border rounded-lg hover:bg-muted/40 transition-colors"
-                >
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-medium bg-muted px-2 py-1 rounded">
-                        ID: {q.question_id}
-                      </span>
-                      <h3 className="font-medium">{q.title}</h3>
-                    </div>
-                    <p className="text-sm text-muted-foreground line-clamp-1">
-                      {q.question.substring(0, 120)}...
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => startEdit(q)}>
-                      <Edit size={16} className="mr-1" /> Edit
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDelete(q.question_id)}
-                    >
-                      <Trash2 size={16} className="mr-1" /> Delete
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <CodingQuestionsList
+        fetching={fetching}
+        questions={questions}
+        startEdit={startEdit}
+        handleDelete={handleDelete}
+      />
 
-      {isFormOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-start justify-center pt-8 z-50 overflow-y-auto">
-          <Card className="w-full max-w-4xl mx-4 border-t-4 border-primary relative">
-            <Button variant="ghost" size="icon" className="absolute top-4 right-4" onClick={resetForm}>
-              <X size={20} />
-            </Button>
-
-            <CardHeader>
-              <CardTitle className="text-2xl">
-                {isEditing ? 'Edit Coding Question' : 'Add New Coding Question'}
-              </CardTitle>
-              <CardDescription>
-                {isEditing ? 'Update the existing problem' : 'Create a new problem for students to solve'}
-              </CardDescription>
-            </CardHeader>
-
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6 pb-8">
-                <div className="grid gap-2">
-                  <Label htmlFor="title">Title *</Label>
-                  <Input
-                    id="title"
-                    placeholder="e.g. Valid Parentheses"
-                    value={form.title}
-                    onChange={(e) => handleChange(e, 'title')}
-                    required
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="question">Question Statement *</Label>
-                  <Textarea
-                    id="question"
-                    placeholder="Describe the problem clearly..."
-                    rows={5}
-                    value={form.question}
-                    onChange={(e) => handleChange(e, 'question')}
-                    required
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="description">Detailed Description / Constraints</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Constraints, notes, input format, etc."
-                    rows={6}
-                    value={form.description}
-                    onChange={(e) => handleChange(e, 'description')}
-                  />
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="grid gap-2">
-                    <Label>Sample Input</Label>
-                    <Textarea
-                      placeholder="0 1 0 3 12\n0"
-                      rows={4}
-                      value={form.sample_inputs}
-                      onChange={(e) => handleChange(e, 'sample_inputs')}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Sample Output</Label>
-                    <Textarea
-                      placeholder="1 3 12 0 0\n0"
-                      rows={4}
-                      value={form.sample_outputs}
-                      onChange={(e) => handleChange(e, 'sample_outputs')}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label>Test Cases *</Label>
-                    <Button type="button" variant="outline" size="sm" onClick={addTestCase}>
-                      <Plus className="h-4 w-4 mr-2" /> Add Test Case
-                    </Button>
-                  </div>
-
-                  {form.test_cases.map((tc, index) => (
-                    <div
-                      key={index}
-                      className="grid md:grid-cols-2 gap-4 border rounded-lg p-4 bg-muted/40 relative"
-                    >
-                      <div className="grid gap-2">
-                        <Label>Input {index + 1}</Label>
-                        <Textarea
-                          placeholder="e.g. 0 1 0 3 12"
-                          value={tc.input}
-                          onChange={(e) => handleTestCaseChange(index, 'input', e.target.value)}
-                          rows={3}
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <Label>Expected Output {index + 1}</Label>
-                        <Textarea
-                          placeholder="e.g. 1 3 12 0 0"
-                          value={tc.output}
-                          onChange={(e) => handleTestCaseChange(index, 'output', e.target.value)}
-                          rows={3}
-                        />
-                      </div>
-                      {form.test_cases.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="absolute top-2 right-2 text-destructive"
-                          onClick={() => removeTestCase(index)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Label>Hints / Suggestions (optional)</Label>
-                    <Button type="button" variant="outline" size="sm" onClick={addSuggestion}>
-                      <Plus className="h-4 w-4 mr-2" /> Add Hint
-                    </Button>
-                  </div>
-
-                  {form.suggestion.map((hint, index) => (
-                    <div key={index} className="flex gap-2 items-start">
-                      <Textarea
-                        placeholder={`Hint ${index + 1}`}
-                        value={hint}
-                        onChange={(e) => handleSuggestionChange(index, e.target.value)}
-                        className="flex-1"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="mt-1 text-destructive"
-                        onClick={() => removeSuggestion(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="pt-6 flex gap-4">
-                  <Button
-                    type="submit"
-                    className="flex-1 md:flex-none px-10"
-                    disabled={loading}
-                    size="lg"
-                  >
-                    {loading ? 'Saving...' : isEditing ? 'Update Question' : 'Add Question'}
-                  </Button>
-
-                  <Button type="button" variant="outline" size="lg" onClick={resetForm}>
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      <CodingQuestionForm
+        isFormOpen={isFormOpen}
+        isEditing={isEditing}
+        form={form}
+        loading={loading}
+        handleChange={handleChange}
+        handleTestCaseChange={handleTestCaseChange}
+        addTestCase={addTestCase}
+        removeTestCase={removeTestCase}
+        addSuggestion={addSuggestion}
+        removeSuggestion={removeSuggestion}
+        handleSuggestionChange={handleSuggestionChange}
+        resetForm={resetForm}
+        handleSubmit={handleSubmit}
+      />
     </div>
   );
 };

@@ -149,6 +149,10 @@ export default function CreateQuiz() {
       const res = await axiosInstance.post("/subadmin/quizzes", formData);
       const quizId = res.data?.id;
 
+      if (quizId && description.trim()) {
+        localStorage.setItem(`quiz_desc_${quizId}`, description.trim());
+      }
+
       if (quizId && questions.length > 0) {
         for (const q of questions) {
           const qFormData = new FormData();
